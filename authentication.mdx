@@ -1,0 +1,165 @@
+---
+title: Authentication
+description: "Learn how to authenticate with the Signum Identity Platform"
+---
+
+# Authentication
+
+Signum supports two authentication modes:
+
+1. **Direct API Authentication** - For embedded applications
+2. **OAuth2/OIDC Flows** - For third-party integrations
+
+## Direct API Authentication
+
+Use direct API endpoints when building applications that embed Signum authentication directly.
+
+### Register a New User
+
+```bash
+curl -X POST https://api.signum.id/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "secure-password",
+    "display_name": "John Doe"
+  }'
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJFUzI1NiIs...",
+  "refresh_token": "rt_abc123...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": "user_abc123",
+    "email": "user@example.com",
+    "display_name": "John Doe"
+  }
+}
+```
+
+### Login
+
+```bash
+curl -X POST https://api.signum.id/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "secure-password"
+  }'
+```
+
+### Using the Access Token
+
+Include the access token in the `Authorization` header for authenticated requests:
+
+```bash
+curl https://api.signum.id/auth/me \
+  -H "Authorization: Bearer eyJhbGciOiJFUzI1NiIs..."
+```
+
+### Refresh Token Flow
+
+Access tokens expire after 1 hour. Use the refresh token to get new tokens:
+
+```bash
+curl -X POST https://api.signum.id/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "rt_abc123..."
+  }'
+```
+
+## OAuth2/OIDC Authentication
+
+For third-party applications, use the standard OAuth2 authorization code flow with PKCE.
+
+### 1. Generate PKCE Challenge
+
+```javascript
+// Generate code verifier (43-128 characters)
+const codeVerifier = generateRandomString(64);
+
+// Generate code challenge (SHA-256 hash, base64url encoded)
+const codeChallenge = base64url(sha256(codeVerifier));
+```
+
+### 2. Redirect to Authorization Endpoint
+
+```
+https://api.signum.id/oauth/authorize?
+  response_type=code&
+  client_id=your_client_id&
+  redirect_uri=https://yourapp.com/callback&
+  scope=openid%20profile%20email%20chain:read&
+  state=random_state_value&
+  code_challenge=your_code_challenge&
+  code_challenge_method=S256
+```
+
+### 3. Exchange Code for Tokens
+
+After the user authenticates, they're redirected back with an authorization code:
+
+```bash
+curl -X POST https://api.signum.id/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "grant_type": "authorization_code",
+    "client_id": "your_client_id",
+    "code": "auth_code_from_callback",
+    "redirect_uri": "https://yourapp.com/callback",
+    "code_verifier": "your_original_code_verifier"
+  }'
+```
+
+### 4. Get User Info
+
+```bash
+curl https://api.signum.id/oauth/userinfo \
+  -H "Authorization: Bearer access_token"
+```
+
+## Token Claims
+
+Signum tokens include standard OIDC claims plus custom claims for chain identities:
+
+```json
+{
+  "sub": "user_abc123",
+  "iss": "https://api.signum.id",
+  "aud": "your_client_id",
+  "exp": 1706799600,
+  "iat": 1706796000,
+  "email": "user@example.com",
+  "name": "John Doe",
+  "https://signum.io/claims/chain_identities": {
+    "solana": ["5Gh7...abc"],
+    "ethereum": ["0x1234...5678"],
+    "canton": ["party::user-abc123"]
+  },
+  "https://signum.io/claims/attestations": {
+    "kyc": {
+      "verified": true,
+      "level": "enhanced",
+      "expires_at": "2027-01-19T00:00:00Z"
+    }
+  }
+}
+```
+
+## Supported Scopes
+
+| Scope | Description |
+|-------|-------------|
+| `openid` | Required for OIDC. Returns `sub` claim |
+| `profile` | User's display name and avatar |
+| `email` | User's email address |
+| `chain:read` | Read-only access to chain identities |
+| `chain:write` | Create and link new chain identities |
+| `kyc:status` | Read KYC verification status |
+| `attestation:read` | Read attestations across chains |
+| `offline_access` | Returns a refresh token |

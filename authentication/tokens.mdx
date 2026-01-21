@@ -1,0 +1,214 @@
+---
+title: Tokens & Claims
+description: "Understanding Signum JWT tokens and their claims"
+---
+
+# Tokens & Claims
+
+Signum issues three types of tokens: Access Tokens, ID Tokens, and Refresh Tokens. All tokens are signed with ES256 (ECDSA with P-256 curve).
+
+## Token Types
+
+| Token | Purpose | Lifetime | Format |
+|-------|---------|----------|--------|
+| **Access Token** | API authorization | 1 hour | JWT |
+| **ID Token** | User identity claims | 1 hour | JWT |
+| **Refresh Token** | Obtain new tokens | 30 days | Opaque |
+
+## Access Token
+
+Used to authenticate API requests. Include in the `Authorization` header:
+
+```bash
+Authorization: Bearer eyJhbGciOiJFUzI1NiIs...
+```
+
+### Access Token Claims
+
+```json
+{
+  "iss": "https://api.signum.id",
+  "sub": "user_abc123",
+  "aud": "app_xyz789",
+  "exp": 1706799600,
+  "iat": 1706796000,
+  "jti": "tok_unique123",
+  "scope": "openid profile email chain:read",
+  "https://signum.id/claims/chain_identities": {
+    "solana": ["5Gh7...abc", "9Kx2...def"],
+    "evm": ["0x1234...5678"],
+    "canton": ["party::user-abc123"]
+  }
+}
+```
+
+| Claim | Description |
+|-------|-------------|
+| `iss` | Issuer URL (Signum API) |
+| `sub` | Subject - the user ID |
+| `aud` | Audience - your client_id |
+| `exp` | Expiration timestamp |
+| `iat` | Issued at timestamp |
+| `jti` | Unique token identifier (for revocation) |
+| `scope` | Granted scopes |
+| `chain_identities` | User's linked wallet addresses |
+
+## ID Token
+
+Contains verified identity claims. Returned alongside access tokens when `openid` scope is requested.
+
+### ID Token Claims
+
+```json
+{
+  "iss": "https://api.signum.id",
+  "sub": "user_abc123",
+  "aud": "app_xyz789",
+  "exp": 1706799600,
+  "iat": 1706796000,
+  "auth_time": 1706796000,
+  "nonce": "abc123",
+  
+  "email": "user@example.com",
+  "email_verified": true,
+  "name": "John Doe",
+  "picture": "https://avatars.signum.id/user_abc123",
+  
+  "https://signum.id/claims/kyc": {
+    "verified": true,
+    "level": "enhanced",
+    "verified_at": "2026-01-15T12:00:00Z",
+    "expires_at": "2027-01-15T12:00:00Z"
+  },
+  
+  "https://signum.id/claims/attestations": [
+    {
+      "chain": "solana",
+      "type": "kyc",
+      "address": "5Gh7...abc",
+      "anchored_at": "2026-01-15T12:05:00Z"
+    },
+    {
+      "chain": "ethereum",
+      "type": "kyc", 
+      "contract": "0x1234...5678",
+      "anchored_at": "2026-01-15T12:06:00Z"
+    }
+  ]
+}
+```
+
+### Standard OIDC Claims
+
+| Claim | Scope Required | Description |
+|-------|----------------|-------------|
+| `sub` | `openid` | User identifier |
+| `email` | `email` | Email address |
+| `email_verified` | `email` | Whether email is verified |
+| `name` | `profile` | Display name |
+| `picture` | `profile` | Avatar URL |
+| `auth_time` | `openid` | Time of authentication |
+
+### Custom Signum Claims
+
+| Claim | Scope Required | Description |
+|-------|----------------|-------------|
+| `chain_identities` | `chain:read` | Linked wallet addresses by chain |
+| `kyc` | `kyc:status` | KYC verification status |
+| `attestations` | `attestation:read` | On-chain attestation records |
+
+## Refresh Token
+
+Opaque token used to obtain new access and ID tokens. Not a JWT.
+
+```
+rt_abc123def456...
+```
+
+### Refresh Token Security
+
+- **Rotation**: New refresh token issued on each use
+- **Revocation**: Old tokens invalidated after rotation
+- **Binding**: Tied to original client_id
+- **Storage**: Store securely (httpOnly cookie recommended)
+
+## Token Verification
+
+### Verify Access Token
+
+1. Fetch JWKS from `/.well-known/jwks.json`
+2. Find key by `kid` in token header
+3. Verify signature with ES256
+4. Check `exp` is in the future
+5. Check `iss` matches Signum issuer
+6. Check `aud` matches your client_id
+
+<CodeGroup>
+```typescript TypeScript
+import * as jose from 'jose';
+
+const JWKS = jose.createRemoteJWKSet(
+  new URL('https://api.signum.id/.well-known/jwks.json')
+);
+
+async function verifyToken(token: string): Promise<jose.JWTPayload> {
+  const { payload } = await jose.jwtVerify(token, JWKS, {
+    issuer: 'https://api.signum.id',
+    audience: 'your_client_id',
+  });
+  return payload;
+}
+```
+
+```python Python
+from jose import jwt
+import requests
+
+def get_jwks():
+    response = requests.get('https://api.signum.id/.well-known/jwks.json')
+    return response.json()
+
+def verify_token(token: str, client_id: str):
+    jwks = get_jwks()
+    return jwt.decode(
+        token,
+        jwks,
+        algorithms=['ES256'],
+        audience=client_id,
+        issuer='https://api.signum.id'
+    )
+```
+</CodeGroup>
+
+## Token Revocation
+
+Revoke tokens when users log out or for security:
+
+```bash
+POST https://api.signum.id/oauth/revoke
+Content-Type: application/json
+
+{
+  "token": "eyJhbGciOiJFUzI1NiIs...",
+  "token_type_hint": "access_token"
+}
+```
+
+Revoked tokens are tracked in the cache until their natural expiration, preventing reuse.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Store Securely" icon="lock">
+    Access tokens in memory only. Refresh tokens in httpOnly cookies or secure storage.
+  </Card>
+  <Card title="Validate Always" icon="shield-check">
+    Always verify token signatures server-side. Never trust client-provided claims.
+  </Card>
+  <Card title="Handle Expiry" icon="clock">
+    Implement proactive token refresh before expiry. Don't wait for 401 errors.
+  </Card>
+  <Card title="Revoke on Logout" icon="right-from-bracket">
+    Always revoke tokens when users log out to prevent session hijacking.
+  </Card>
+</CardGroup>

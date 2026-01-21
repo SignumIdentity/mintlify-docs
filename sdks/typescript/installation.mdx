@@ -1,0 +1,190 @@
+---
+title: Installation
+description: "Install and configure the Signum TypeScript SDK"
+---
+
+# TypeScript SDK
+
+The official TypeScript/JavaScript SDK for the Signum Identity Platform.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @signum/sdk
+```
+
+```bash yarn
+yarn add @signum/sdk
+```
+
+```bash pnpm
+pnpm add @signum/sdk
+```
+
+```bash bun
+bun add @signum/sdk
+```
+</CodeGroup>
+
+## Quick Start
+
+```typescript
+import { SignumClient } from '@signum/sdk';
+
+// Initialize client
+const signum = new SignumClient({
+  baseUrl: 'https://api.signum.id', // or 'http://localhost:5000' for dev
+});
+
+// Register a new user
+const session = await signum.auth.register({
+  email: 'user@example.com',
+  password: 'secure-password',
+  displayName: 'John Doe',
+});
+
+console.log('User ID:', session.user.id);
+console.log('Access Token:', session.accessToken);
+
+// Get user profile
+const user = await signum.auth.me(session.accessToken);
+console.log('Chain identities:', user.chainIdentities);
+```
+
+## Configuration
+
+```typescript
+import { SignumClient } from '@signum/sdk';
+
+const signum = new SignumClient({
+  // Required
+  baseUrl: 'https://api.signum.id',
+  
+  // Optional
+  timeout: 30000,           // Request timeout in ms (default: 30000)
+  retries: 3,               // Number of retries on failure (default: 3)
+  
+  // Custom fetch (for Node.js or testing)
+  fetch: customFetch,
+  
+  // Logging
+  debug: process.env.NODE_ENV === 'development',
+});
+```
+
+## TypeScript Support
+
+The SDK is written in TypeScript and includes full type definitions:
+
+```typescript
+import type {
+  SignumClient,
+  User,
+  AuthSession,
+  ChainIdentities,
+  KycStatus,
+  SolanaWallet,
+  EvmWallet,
+} from '@signum/sdk';
+```
+
+## Browser Support
+
+The SDK works in all modern browsers:
+
+| Browser | Version |
+|---------|---------|
+| Chrome | 80+ |
+| Firefox | 80+ |
+| Safari | 14+ |
+| Edge | 80+ |
+
+## Node.js Support
+
+Requires Node.js 18+ (uses native `fetch`).
+
+For older Node.js versions, provide a fetch polyfill:
+
+```typescript
+import fetch from 'node-fetch';
+
+const signum = new SignumClient({
+  baseUrl: 'https://api.signum.id',
+  fetch: fetch as any,
+});
+```
+
+## Framework Examples
+
+<Tabs>
+  <Tab title="React">
+```typescript
+import { SignumClient } from '@signum/sdk';
+import { createContext, useContext } from 'react';
+
+const SignumContext = createContext<SignumClient | null>(null);
+
+export function SignumProvider({ children }: { children: React.ReactNode }) {
+  const client = new SignumClient({
+    baseUrl: process.env.NEXT_PUBLIC_SIGNUM_URL!,
+  });
+
+  return (
+    <SignumContext.Provider value={client}>
+      {children}
+    </SignumContext.Provider>
+  );
+}
+
+export function useSignum() {
+  const client = useContext(SignumContext);
+  if (!client) throw new Error('Missing SignumProvider');
+  return client;
+}
+```
+  </Tab>
+  
+  <Tab title="Next.js">
+```typescript
+// lib/signum.ts
+import { SignumClient } from '@signum/sdk';
+
+export const signum = new SignumClient({
+  baseUrl: process.env.SIGNUM_URL || 'https://api.signum.id',
+});
+
+// app/api/auth/route.ts
+import { signum } from '@/lib/signum';
+
+export async function POST(req: Request) {
+  const { email, password } = await req.json();
+  
+  const session = await signum.auth.login({ email, password });
+  
+  return Response.json(session);
+}
+```
+  </Tab>
+  
+  <Tab title="Vue">
+```typescript
+// plugins/signum.ts
+import { SignumClient } from '@signum/sdk';
+
+export default defineNuxtPlugin(() => {
+  const signum = new SignumClient({
+    baseUrl: useRuntimeConfig().public.signumUrl,
+  });
+
+  return {
+    provide: { signum },
+  };
+});
+
+// Usage in component
+const { $signum } = useNuxtApp();
+const user = await $signum.auth.me(token);
+```
+  </Tab>
+</Tabs>

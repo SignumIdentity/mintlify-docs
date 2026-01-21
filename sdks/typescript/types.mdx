@@ -1,0 +1,315 @@
+---
+title: TypeScript Types
+description: "Complete type reference for the Signum SDK"
+---
+
+# TypeScript Types
+
+Complete type definitions exported by `@signum/sdk`.
+
+## Core Types
+
+### SignumClient
+
+```typescript
+interface SignumClientConfig {
+  baseUrl: string;
+  timeout?: number;
+  retries?: number;
+  fetch?: typeof fetch;
+  debug?: boolean;
+  tokenManager?: TokenManager;
+}
+
+class SignumClient {
+  constructor(config: SignumClientConfig);
+  
+  auth: AuthModule;
+  accounts: AccountsModule;
+  solana: SolanaModule;
+  kyc: KycModule;
+}
+```
+
+### SignumOAuth
+
+```typescript
+interface SignumOAuthConfig {
+  clientId: string;
+  redirectUri: string;
+  scopes: string[];
+  baseUrl?: string;
+}
+
+class SignumOAuth {
+  constructor(config: SignumOAuthConfig);
+  
+  getAuthorizationUrl(): { url: string; codeVerifier: string; state: string };
+  exchangeCode(code: string, codeVerifier: string): Promise<TokenResponse>;
+  getUserInfo(accessToken: string): Promise<UserInfo>;
+  refreshTokens(refreshToken: string): Promise<TokenResponse>;
+}
+```
+
+## Authentication Types
+
+### AuthSession
+
+```typescript
+interface AuthSession {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: 'Bearer';
+  expiresIn: number;
+  user: User;
+}
+```
+
+### User
+
+```typescript
+interface User {
+  id: string;
+  email: string;
+  displayName?: string;
+  status: 'active' | 'pending' | 'suspended';
+  createdAt: string;
+  chainIdentities?: ChainIdentities;
+  kyc?: KycStatus;
+}
+```
+
+### TokenResponse
+
+```typescript
+interface TokenResponse {
+  accessToken: string;
+  tokenType: 'Bearer';
+  expiresIn: number;
+  refreshToken?: string;
+  idToken?: string;
+  scope: string;
+}
+```
+
+### UserInfo
+
+```typescript
+interface UserInfo {
+  sub: string;
+  name?: string;
+  picture?: string;
+  email?: string;
+  email_verified?: boolean;
+  'https://signum.id/claims/chain_identities'?: ChainIdentities;
+  'https://signum.id/claims/kyc'?: KycStatus;
+}
+```
+
+## Account Types
+
+### Account
+
+```typescript
+interface Account {
+  user: {
+    id: string;
+    email: string;
+    displayName?: string;
+  };
+  chains: ChainIdentities;
+  kyc: KycStatus;
+}
+```
+
+### ChainIdentities
+
+```typescript
+interface ChainIdentities {
+  solana?: SolanaChainIdentity;
+  evm?: EvmChainIdentity;
+  canton?: CantonChainIdentity;
+}
+```
+
+### SolanaChainIdentity
+
+```typescript
+interface SolanaChainIdentity {
+  pda?: {
+    address: string;
+    type: 'pda';
+    createdAt: string;
+    attestation?: {
+      verified: boolean;
+      anchoredAt: string;
+    };
+  };
+  linked: SolanaWallet[];
+}
+
+interface SolanaWallet {
+  address: string;
+  type: 'pda' | 'embedded' | 'external';
+  isPrimary: boolean;
+  createdAt: string;
+}
+```
+
+### EvmChainIdentity
+
+```typescript
+interface EvmChainIdentity {
+  embedded?: {
+    address: string;
+    type: 'embedded';
+    chains: number[];
+  };
+  linked: EvmWallet[];
+}
+
+interface EvmWallet {
+  address: string;
+  type: 'embedded' | 'external';
+  primary: boolean;
+  linkedAt: string;
+}
+```
+
+### CantonChainIdentity
+
+```typescript
+interface CantonChainIdentity {
+  partyId: string;
+  participant: string;
+  createdAt: string;
+}
+```
+
+## KYC Types
+
+### KycStatus
+
+```typescript
+interface KycStatus {
+  verified: boolean;
+  level?: 'basic' | 'enhanced' | 'institutional';
+  status: 'not_started' | 'pending' | 'in_review' | 'approved' | 'rejected' | 'expired';
+  verifiedAt?: string;
+  expiresAt?: string;
+  rejectionReason?: string;
+  canRetry?: boolean;
+}
+```
+
+### KycInitiateRequest
+
+```typescript
+interface KycInitiateRequest {
+  level: 'basic' | 'enhanced' | 'institutional';
+  userInfo?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    dateOfBirth?: string;
+    country?: string;
+  };
+}
+```
+
+### KycInitiateResponse
+
+```typescript
+interface KycInitiateResponse {
+  applicantId: string;
+  accessToken: string;
+  sdkUrl: string;
+  expiresAt: string;
+}
+```
+
+## Error Types
+
+### SignumError
+
+```typescript
+class SignumError extends Error {
+  code: string;
+  status: number;
+  details?: string[];
+}
+```
+
+### AuthError
+
+```typescript
+class AuthError extends SignumError {
+  code: 
+    | 'invalid_credentials'
+    | 'account_suspended'
+    | 'email_already_registered'
+    | 'invalid_token'
+    | 'token_expired';
+}
+```
+
+### ValidationError
+
+```typescript
+class ValidationError extends SignumError {
+  code: 'validation_failed';
+  details: string[];
+}
+```
+
+## Utility Types
+
+### TokenClaims
+
+```typescript
+interface TokenClaims {
+  iss: string;
+  sub: string;
+  aud: string;
+  exp: number;
+  iat: number;
+  jti?: string;
+  scope?: string;
+  'https://signum.id/claims/chain_identities'?: ChainIdentities;
+}
+```
+
+### PaginatedResponse
+
+```typescript
+interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+```
+
+## Type Guards
+
+```typescript
+import {
+  isAuthError,
+  isValidationError,
+  isSignumError,
+  isTokenExpired,
+} from '@signum/sdk';
+
+// Usage
+if (isAuthError(error)) {
+  console.log('Auth error:', error.code);
+}
+
+if (isTokenExpired(accessToken)) {
+  // Refresh token
+}
+```

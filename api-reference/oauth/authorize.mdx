@@ -1,0 +1,102 @@
+---
+title: Authorize
+description: "OAuth2 authorization endpoint"
+api: "GET /oauth/authorize"
+---
+
+# OAuth2 Authorize
+
+Initiate the OAuth2 authorization code flow. Redirect users to this endpoint to authenticate.
+
+## Query Parameters
+
+<ParamField query="response_type" type="string" required>
+  Must be `code` for authorization code flow.
+</ParamField>
+
+<ParamField query="client_id" type="string" required>
+  Your application's client ID.
+</ParamField>
+
+<ParamField query="redirect_uri" type="string" required>
+  URI to redirect after authorization. Must match registered URI.
+</ParamField>
+
+<ParamField query="scope" type="string" required>
+  Space-separated list of scopes. See [Scopes](/authentication/scopes).
+</ParamField>
+
+<ParamField query="state" type="string">
+  Random string for CSRF protection. Recommended.
+</ParamField>
+
+<ParamField query="code_challenge" type="string" required>
+  PKCE code challenge (base64url-encoded SHA256 of code_verifier).
+</ParamField>
+
+<ParamField query="code_challenge_method" type="string" required>
+  Must be `S256`.
+</ParamField>
+
+<ParamField query="nonce" type="string">
+  Random string for ID token replay protection.
+</ParamField>
+
+## Response
+
+On success, redirects to `redirect_uri` with:
+
+| Parameter | Description |
+|-----------|-------------|
+| `code` | Authorization code (exchange for tokens) |
+| `state` | Original state value |
+
+On error, redirects with:
+
+| Parameter | Description |
+|-----------|-------------|
+| `error` | Error code |
+| `error_description` | Human-readable description |
+| `state` | Original state value |
+
+<RequestExample>
+```
+GET https://api.signum.id/oauth/authorize?
+  response_type=code&
+  client_id=app_abc123&
+  redirect_uri=https://yourapp.com/callback&
+  scope=openid%20profile%20email%20chain:read&
+  state=xyz123&
+  code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&
+  code_challenge_method=S256
+```
+
+```typescript TypeScript
+const params = new URLSearchParams({
+  response_type: 'code',
+  client_id: 'app_abc123',
+  redirect_uri: 'https://yourapp.com/callback',
+  scope: 'openid profile email chain:read',
+  state: generateRandomState(),
+  code_challenge: await generateCodeChallenge(codeVerifier),
+  code_challenge_method: 'S256',
+});
+
+window.location.href = `https://api.signum.id/oauth/authorize?${params}`;
+```
+</RequestExample>
+
+<ResponseExample>
+```
+# Success
+https://yourapp.com/callback?
+  code=auth_code_xyz123&
+  state=xyz123
+
+# Error
+https://yourapp.com/callback?
+  error=access_denied&
+  error_description=User+denied+access&
+  state=xyz123
+```
+</ResponseExample>

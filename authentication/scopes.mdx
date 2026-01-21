@@ -1,0 +1,156 @@
+---
+title: Scopes
+description: "OAuth2 scopes for controlling access"
+---
+
+# Scopes
+
+Scopes define the permissions your application requests from users. Request only the scopes you need.
+
+## Available Scopes
+
+### Identity Scopes
+
+| Scope | Claims Included | Description |
+|-------|-----------------|-------------|
+| `openid` | `sub`, `iss`, `aud`, `exp`, `iat` | Required for OIDC. Returns basic token claims. |
+| `profile` | `name`, `picture` | User's display name and avatar URL |
+| `email` | `email`, `email_verified` | User's email address and verification status |
+| `offline_access` | - | Returns a refresh token for long-lived sessions |
+
+### Chain Identity Scopes
+
+| Scope | Claims Included | Description |
+|-------|-----------------|-------------|
+| `chain:read` | `chain_identities` | Read-only access to linked wallet addresses |
+| `chain:write` | - | Create new wallets and link external addresses |
+
+### KYC & Attestation Scopes
+
+| Scope | Claims Included | Description |
+|-------|-----------------|-------------|
+| `kyc:status` | `kyc` | Read KYC verification status and level |
+| `kyc:initiate` | - | Initiate new KYC verification flows |
+| `attestation:read` | `attestations` | Read on-chain attestation records |
+
+## Scope Combinations
+
+### Minimal (Authentication Only)
+
+```
+openid
+```
+
+Returns only the user ID. Use when you just need to authenticate the user.
+
+### Standard User Profile
+
+```
+openid profile email
+```
+
+Returns identity claims. Good for most applications that display user information.
+
+### Full Chain Access
+
+```
+openid profile email chain:read chain:write kyc:status attestation:read
+```
+
+Full access to all identity and chain data. Required for wallet management UIs.
+
+### Long-Lived Sessions
+
+```
+openid profile email offline_access
+```
+
+Includes refresh token for applications that need persistent sessions.
+
+## Requesting Scopes
+
+Include scopes in the `scope` parameter when initiating OAuth2 flow:
+
+```
+GET https://api.signum.id/oauth/authorize?
+  response_type=code&
+  client_id=your_client_id&
+  redirect_uri=https://yourapp.com/callback&
+  scope=openid%20profile%20email%20chain:read&
+  code_challenge=...&
+  code_challenge_method=S256
+```
+
+<Note>
+  Scopes must be URL-encoded. Spaces become `%20`.
+</Note>
+
+## Scope Consent
+
+When a user authorizes your application:
+
+1. **First time**: User sees all requested scopes and grants consent
+2. **Subsequent**: User is not prompted again for previously-granted scopes
+3. **New scopes**: If you request new scopes, user is prompted to approve
+
+## Scope Validation
+
+### Client Restrictions
+
+Applications can be restricted to specific scopes. Requesting unauthorized scopes returns:
+
+```json
+{
+  "error": "invalid_scope",
+  "error_description": "Scope 'chain:write' not allowed for this client"
+}
+```
+
+### Token Scope
+
+The granted scope is included in token responses:
+
+```json
+{
+  "access_token": "...",
+  "scope": "openid profile email chain:read"
+}
+```
+
+<Warning>
+  The granted scope may differ from the requested scope if the user denies specific permissions.
+</Warning>
+
+## Best Practices
+
+<Steps>
+  <Step title="Request Minimum Scopes">
+    Only request scopes your application actually needs. More scopes = more friction for users.
+  </Step>
+  
+  <Step title="Explain Why">
+    If requesting sensitive scopes like `chain:write`, explain to users why you need this access.
+  </Step>
+  
+  <Step title="Handle Denied Scopes">
+    Your application should gracefully handle cases where users deny specific scopes.
+  </Step>
+  
+  <Step title="Progressive Disclosure">
+    Request additional scopes later when needed, rather than all upfront.
+  </Step>
+</Steps>
+
+## Scope Reference Table
+
+| Scope | Access Level | Token Claim | API Endpoints |
+|-------|--------------|-------------|---------------|
+| `openid` | Read | `sub` | `/oauth/userinfo` |
+| `profile` | Read | `name`, `picture` | `/oauth/userinfo` |
+| `email` | Read | `email`, `email_verified` | `/oauth/userinfo` |
+| `offline_access` | - | - | `/oauth/token` (refresh) |
+| `chain:read` | Read | `chain_identities` | `/accounts`, `/solana/*` |
+| `chain:write` | Write | - | `POST /accounts/*`, `POST /solana/*` |
+| `kyc:status` | Read | `kyc` | `/kyc/status` |
+| `kyc:initiate` | Write | - | `POST /kyc/initiate` |
+| `attestation:read` | Read | `attestations` | `/accounts` (attestation data) |

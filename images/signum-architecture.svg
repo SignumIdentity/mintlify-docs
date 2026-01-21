@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" fill="none">
+  <style>
+    .box { fill: #1a1a1a; stroke: #333; stroke-width: 1; }
+    .box-highlight { fill: #0a0a0a; stroke: #fff; stroke-width: 2; }
+    .text { fill: #fff; font-family: Inter, system-ui, sans-serif; font-size: 14px; }
+    .text-small { fill: #888; font-family: Inter, system-ui, sans-serif; font-size: 11px; }
+    .text-title { fill: #fff; font-family: Inter, system-ui, sans-serif; font-size: 16px; font-weight: 600; }
+    .line { stroke: #444; stroke-width: 1; }
+    .line-arrow { stroke: #666; stroke-width: 2; marker-end: url(#arrow); }
+  </style>
+  
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="400" fill="#0a0a0a"/>
+  
+  <!-- Title -->
+  <text x="400" y="30" class="text-title" text-anchor="middle">Signum Identity Platform Architecture</text>
+  
+  <!-- Your Application -->
+  <rect x="40" y="60" width="140" height="80" rx="8" class="box"/>
+  <text x="110" y="95" class="text" text-anchor="middle">Your</text>
+  <text x="110" y="115" class="text" text-anchor="middle">Application</text>
+  
+  <!-- Signum Core -->
+  <rect x="240" y="60" width="320" height="160" rx="8" class="box-highlight"/>
+  <text x="400" y="85" class="text-title" text-anchor="middle">Signum Identity Provider</text>
+  
+  <!-- Internal boxes -->
+  <rect x="260" y="100" width="90" height="50" rx="4" class="box"/>
+  <text x="305" y="130" class="text-small" text-anchor="middle">OAuth2/OIDC</text>
+  
+  <rect x="360" y="100" width="90" height="50" rx="4" class="box"/>
+  <text x="405" y="130" class="text-small" text-anchor="middle">KYC Service</text>
+  
+  <rect x="460" y="100" width="90" height="50" rx="4" class="box"/>
+  <text x="505" y="130" class="text-small" text-anchor="middle">Attestations</text>
+  
+  <rect x="310" y="165" width="180" height="40" rx="4" class="box"/>
+  <text x="400" y="190" class="text-small" text-anchor="middle">Chain Identity Manager</text>
+  
+  <!-- KYC Provider -->
+  <rect x="620" y="60" width="140" height="80" rx="8" class="box"/>
+  <text x="690" y="95" class="text" text-anchor="middle">KYC Provider</text>
+  <text x="690" y="115" class="text-small" text-anchor="middle">(Sumsub)</text>
+  
+  <!-- Blockchains -->
+  <rect x="140" y="280" width="120" height="70" rx="8" class="box"/>
+  <text x="200" y="310" class="text" text-anchor="middle">Solana</text>
+  <text x="200" y="330" class="text-small" text-anchor="middle">PDAs + Token2022</text>
+  
+  <rect x="300" y="280" width="120" height="70" rx="8" class="box"/>
+  <text x="360" y="310" class="text" text-anchor="middle">EVM Chains</text>
+  <text x="360" y="330" class="text-small" text-anchor="middle">ERC-3643 Registry</text>
+  
+  <rect x="460" y="280" width="120" height="70" rx="8" class="box"/>
+  <text x="520" y="310" class="text" text-anchor="middle">Canton</text>
+  <text x="520" y="330" class="text-small" text-anchor="middle">DAML Contracts</text>
+  
+  <!-- Infrastructure -->
+  <rect x="620" y="280" width="140" height="70" rx="8" class="box"/>
+  <text x="690" y="305" class="text" text-anchor="middle">Infrastructure</text>
+  <text x="690" y="325" class="text-small" text-anchor="middle">Kafka • Dragonfly</text>
+  <text x="690" y="340" class="text-small" text-anchor="middle">Supabase</text>
+  
+  <!-- Arrows -->
+  <line x1="180" y1="100" x2="235" y2="100" class="line-arrow"/>
+  <line x1="560" y1="100" x2="615" y2="100" class="line-arrow"/>
+  <line x1="400" y1="220" x2="200" y2="275" class="line-arrow"/>
+  <line x1="400" y1="220" x2="360" y2="275" class="line-arrow"/>
+  <line x1="400" y1="220" x2="520" y2="275" class="line-arrow"/>
+  <line x1="560" y1="185" x2="615" y2="280" class="line-arrow"/>
+  
+</svg>

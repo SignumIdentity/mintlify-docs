@@ -1,0 +1,74 @@
+---
+title: List Wallets
+description: "List all Solana wallets for the user"
+api: "GET /solana/wallets"
+---
+
+# List Solana Wallets
+
+Retrieve all Solana wallets associated with the authenticated user, including PDAs and linked external wallets.
+
+## Authorization
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token from login or OAuth2 flow.
+</ParamField>
+
+## Response
+
+<ResponseField name="wallets" type="array">
+  List of Solana wallets.
+  <Expandable title="properties">
+    <ResponseField name="address" type="string">
+      Wallet address.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Wallet type: "pda", "embedded", or "external".
+    </ResponseField>
+    <ResponseField name="isPrimary" type="boolean">
+      Whether this is the primary wallet.
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl https://api.signum.id/solana/wallets \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const response = await fetch('https://api.signum.id/solana/wallets', {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+
+const { wallets } = await response.json();
+wallets.forEach(wallet => {
+  console.log(`${wallet.type}: ${wallet.address}`);
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "wallets": [
+    {
+      "address": "5Gh7UuKrE7ePX4ghjZN2abcdef1234567890abcdef",
+      "type": "pda",
+      "isPrimary": true,
+      "createdAt": "2026-01-15T12:00:00Z"
+    },
+    {
+      "address": "9Kx2BvPL8tqRxyz7890abcdef1234567890abcdef",
+      "type": "external",
+      "isPrimary": false,
+      "createdAt": "2026-01-18T09:00:00Z"
+    }
+  ]
+}
+```
+</ResponseExample>

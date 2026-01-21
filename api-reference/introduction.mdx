@@ -1,33 +1,134 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: API Reference
+description: "Complete REST API documentation for the Signum Identity Platform"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+# API Reference
 
-## Welcome
+The Signum API is a RESTful API that returns JSON responses. All endpoints use standard HTTP methods and status codes.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+## Base URL
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+<Tabs>
+  <Tab title="Production">
+    ```
+    https://api.signum.id
+    ```
+  </Tab>
+  <Tab title="Development">
+    ```
+    http://localhost:5000
+    ```
+  </Tab>
+</Tabs>
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Most endpoints require authentication via Bearer token. Include the access token in the `Authorization` header:
+
+```bash
+curl https://api.signum.id/accounts \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Obtain an access token by:
+1. **Direct API**: `POST /auth/login` with email/password
+2. **OAuth2**: `POST /oauth/token` with authorization code
+
+## Response Format
+
+### Success Response
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
+{
+  "user": {
+    "id": "user_abc123",
+    "email": "user@example.com"
   }
-]
+}
 ```
+
+### Error Response
+
+```json
+{
+  "error": "invalid_credentials",
+  "message": "Email or password is incorrect"
+}
+```
+
+## HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| `200` | Request succeeded |
+| `201` | Resource created |
+| `400` | Bad request - Invalid parameters |
+| `401` | Unauthorized - Missing or invalid token |
+| `403` | Forbidden - Insufficient permissions |
+| `404` | Not found - Resource doesn't exist |
+| `409` | Conflict - Resource already exists |
+| `429` | Too many requests - Rate limited |
+| `500` | Server error - Something went wrong |
+
+## Rate Limiting
+
+API requests are rate-limited to prevent abuse:
+
+| Endpoint | Anonymous | Authenticated |
+|----------|-----------|---------------|
+| `/auth/*` | 10/min | 100/min |
+| `/oauth/*` | 50/min | 500/min |
+| `/accounts/*` | - | 1000/min |
+| `/kyc/*` | - | 100/min |
+
+Rate limit headers are included in responses:
+
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1706799600
+```
+
+## OpenAPI Specification
+
+The complete OpenAPI 3.0 specification is available at:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /swagger` | Interactive Scalar UI |
+| `GET /swagger/json` | Raw OpenAPI JSON |
+
+## SDK Libraries
+
+<CardGroup cols={2}>
+  <Card title="TypeScript" icon="js" href="/sdks/typescript/installation">
+    Official TypeScript/JavaScript SDK
+  </Card>
+  <Card title="Python" icon="python" href="/sdks/python">
+    Python SDK (coming soon)
+  </Card>
+</CardGroup>
+
+## API Sections
+
+<CardGroup cols={3}>
+  <Card title="Authentication" icon="key" href="/api-reference/auth/register">
+    Direct API authentication for embedded apps
+  </Card>
+  <Card title="OAuth2" icon="lock" href="/api-reference/oauth/authorize">
+    OAuth2/OIDC flows for third-party apps
+  </Card>
+  <Card title="Accounts" icon="user" href="/api-reference/accounts/get-accounts">
+    Unified chain identity management
+  </Card>
+  <Card title="Solana" icon="sun" href="/api-reference/solana/status">
+    Solana PDA wallet operations
+  </Card>
+  <Card title="KYC" icon="id-card" href="/api-reference/kyc/status">
+    Identity verification endpoints
+  </Card>
+  <Card title="Discovery" icon="compass" href="/api-reference/discovery/openid-config">
+    OIDC discovery and JWKS
+  </Card>
+</CardGroup>

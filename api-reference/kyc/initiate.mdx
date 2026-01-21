@@ -1,0 +1,105 @@
+---
+title: Initiate
+description: "Start KYC verification"
+api: "POST /kyc/initiate"
+---
+
+# Initiate KYC
+
+Start a new KYC verification session. Returns credentials for the KYC provider SDK.
+
+## Authorization
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token with `kyc:initiate` scope.
+</ParamField>
+
+## Request
+
+<ParamField body="level" type="string" required>
+  Verification level: `basic`, `enhanced`, or `institutional`.
+</ParamField>
+
+<ParamField body="userInfo" type="object">
+  Pre-fill user information for the KYC flow.
+  <Expandable title="properties">
+    <ParamField body="firstName" type="string">First name</ParamField>
+    <ParamField body="lastName" type="string">Last name</ParamField>
+    <ParamField body="email" type="string">Email address</ParamField>
+    <ParamField body="phone" type="string">Phone number</ParamField>
+    <ParamField body="dateOfBirth" type="string">Date of birth (YYYY-MM-DD)</ParamField>
+    <ParamField body="country" type="string">Country code (ISO 3166-1 alpha-2)</ParamField>
+  </Expandable>
+</ParamField>
+
+## Response
+
+<ResponseField name="applicantId" type="string">
+  KYC provider applicant ID.
+</ResponseField>
+
+<ResponseField name="accessToken" type="string">
+  Token for KYC provider SDK.
+</ResponseField>
+
+<ResponseField name="sdkUrl" type="string">
+  URL for redirect-based flow.
+</ResponseField>
+
+<ResponseField name="expiresAt" type="string">
+  When the access token expires.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.signum.id/kyc/initiate \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "level": "enhanced",
+    "userInfo": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@example.com"
+    }
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('https://api.signum.id/kyc/initiate', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    level: 'enhanced',
+    userInfo: {
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+    },
+  }),
+});
+
+const { accessToken: sdkToken, sdkUrl } = await response.json();
+// Use sdkToken with Sumsub WebSDK
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "applicantId": "6789abcdef123456",
+  "accessToken": "sumsub_sdk_token...",
+  "sdkUrl": "https://websdk.sumsub.com/p/...",
+  "expiresAt": "2026-01-20T13:00:00Z"
+}
+```
+
+```json 409 Conflict
+{
+  "error": "Verification already in progress"
+}
+```
+</ResponseExample>
