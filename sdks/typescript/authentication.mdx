@@ -1,0 +1,216 @@
+---
+title: Authentication
+description: "Authenticate users with the TypeScript SDK"
+---
+
+# Authentication
+
+The SDK provides methods for both direct API authentication and OAuth2 flows.
+
+## Direct API Authentication
+
+For embedded applications that handle authentication directly.
+
+### Register
+
+```typescript
+const session = await signum.auth.register({
+  email: 'user@example.com',
+  password: 'secure-password-123',
+  displayName: 'John Doe', // optional
+});
+
+// session contains:
+// - accessToken: JWT for API calls
+// - refreshToken: For obtaining new tokens
+// - user: User profile
+```
+
+### Login
+
+```typescript
+const session = await signum.auth.login({
+  email: 'user@example.com',
+  password: 'secure-password-123',
+});
+
+// Store tokens securely
+localStorage.setItem('access_token', session.accessToken);
+localStorage.setItem('refresh_token', session.refreshToken);
+```
+
+### Get Current User
+
+```typescript
+const user = await signum.auth.me(accessToken);
+
+console.log(user.id);
+console.log(user.email);
+console.log(user.chainIdentities);
+console.log(user.kyc);
+```
+
+### Refresh Token
+
+```typescript
+const newSession = await signum.auth.refresh(refreshToken);
+
+// Update stored tokens
+localStorage.setItem('access_token', newSession.accessToken);
+localStorage.setItem('refresh_token', newSession.refreshToken);
+```
+
+### Logout
+
+```typescript
+await signum.auth.logout(accessToken, refreshToken);
+
+// Clear stored tokens
+localStorage.removeItem('access_token');
+localStorage.removeItem('refresh_token');
+```
+
+## OAuth2 Authentication
+
+For third-party applications using OAuth2 with PKCE.
+
+### Initialize OAuth Client
+
+```typescript
+import { SignumOAuth } from '@signum/sdk';
+
+const oauth = new SignumOAuth({
+  clientId: 'your_client_id',
+  redirectUri: 'https://yourapp.com/callback',
+  scopes: ['openid', 'profile', 'email', 'chain:read'],
+  baseUrl: 'https://api.signum.id',
+});
+```
+
+### Generate Authorization URL
+
+```typescript
+// Generates PKCE parameters and state automatically
+const { url, codeVerifier, state } = oauth.getAuthorizationUrl();
+
+// Store for callback validation
+sessionStorage.setItem('code_verifier', codeVerifier);
+sessionStorage.setItem('oauth_state', state);
+
+// Redirect user
+window.location.href = url;
+```
+
+### Handle Callback
+
+```typescript
+// On callback page
+const params = new URLSearchParams(window.location.search);
+const code = params.get('code');
+const returnedState = params.get('state');
+
+// Validate state
+const storedState = sessionStorage.getItem('oauth_state');
+if (returnedState !== storedState) {
+  throw new Error('Invalid state - possible CSRF attack');
+}
+
+// Exchange code for tokens
+const codeVerifier = sessionStorage.getItem('code_verifier')!;
+const tokens = await oauth.exchangeCode(code!, codeVerifier);
+
+console.log(tokens.accessToken);
+console.log(tokens.idToken);
+console.log(tokens.refreshToken);
+```
+
+### Get User Info
+
+```typescript
+const userInfo = await oauth.getUserInfo(tokens.accessToken);
+
+console.log(userInfo.sub);
+console.log(userInfo.email);
+console.log(userInfo['https://signum.id/claims/chain_identities']);
+```
+
+### Refresh Tokens
+
+```typescript
+const newTokens = await oauth.refreshTokens(tokens.refreshToken);
+```
+
+## Token Management
+
+### Automatic Token Refresh
+
+```typescript
+import { SignumClient, TokenManager } from '@signum/sdk';
+
+const tokenManager = new TokenManager({
+  onTokenRefresh: (newTokens) => {
+    // Persist new tokens
+    localStorage.setItem('access_token', newTokens.accessToken);
+    localStorage.setItem('refresh_token', newTokens.refreshToken);
+  },
+  onTokenError: (error) => {
+    // Handle token refresh failure (e.g., redirect to login)
+    console.error('Token refresh failed:', error);
+    window.location.href = '/login';
+  },
+});
+
+const signum = new SignumClient({
+  baseUrl: 'https://api.signum.id',
+  tokenManager,
+});
+
+// Tokens are automatically refreshed when needed
+const user = await signum.auth.me(accessToken);
+```
+
+### Check Token Expiry
+
+```typescript
+import { isTokenExpired, getTokenClaims } from '@signum/sdk';
+
+if (isTokenExpired(accessToken)) {
+  // Refresh the token
+  const newSession = await signum.auth.refresh(refreshToken);
+}
+
+// Inspect token claims
+const claims = getTokenClaims(accessToken);
+console.log('Expires at:', new Date(claims.exp * 1000));
+console.log('Scopes:', claims.scope);
+```
+
+## Error Handling
+
+```typescript
+import { SignumError, AuthError } from '@signum/sdk';
+
+try {
+  const session = await signum.auth.login({
+    email: 'user@example.com',
+    password: 'wrong-password',
+  });
+} catch (error) {
+  if (error instanceof AuthError) {
+    switch (error.code) {
+      case 'invalid_credentials':
+        console.log('Wrong email or password');
+        break;
+      case 'account_suspended':
+        console.log('Account is suspended');
+        break;
+      default:
+        console.log('Auth error:', error.message);
+    }
+  } else if (error instanceof SignumError) {
+    console.log('API error:', error.message);
+  } else {
+    throw error;
+  }
+}
+```

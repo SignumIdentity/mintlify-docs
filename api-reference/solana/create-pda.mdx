@@ -1,0 +1,84 @@
+---
+title: Create PDA Wallet
+description: "Create a Solana PDA custody wallet"
+api: "POST /solana/wallets"
+---
+
+# Create PDA Wallet
+
+Create a Program Derived Address (PDA) custody wallet for the authenticated user on Solana.
+
+<Note>
+  PDA wallets are derived deterministically from the user's email. The same email always produces the same PDA address.
+</Note>
+
+## Authorization
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token from login or OAuth2 flow.
+</ParamField>
+
+## Response
+
+<ResponseField name="wallet" type="object">
+  Created wallet details.
+  <Expandable title="properties">
+    <ResponseField name="address" type="string">
+      Solana PDA address.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Always "pda".
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="transaction" type="object">
+  Transaction details if on-chain initialization was performed.
+  <Expandable title="properties">
+    <ResponseField name="signature" type="string">
+      Solana transaction signature.
+    </ResponseField>
+    <ResponseField name="slot" type="number">
+      Slot number.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.signum.id/solana/wallets \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const response = await fetch('https://api.signum.id/solana/wallets', {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+
+const { wallet, transaction } = await response.json();
+console.log('PDA Address:', wallet.address);
+console.log('Transaction:', transaction?.signature);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{
+  "wallet": {
+    "address": "5Gh7UuKrE7ePX4ghjZN2abcdef1234567890abcdef",
+    "type": "pda"
+  },
+  "transaction": {
+    "signature": "5vZ8...tx_signature",
+    "slot": 123456789
+  }
+}
+```
+
+```json 409 Conflict
+{
+  "error": "Solana PDA wallet already exists for this user"
+}
+```
+</ResponseExample>

@@ -1,0 +1,112 @@
+---
+title: Login
+description: "Authenticate an existing user"
+api: "POST /auth/login"
+---
+
+# Login
+
+Authenticate a user with email and password.
+
+## Request
+
+<ParamField body="email" type="string" required>
+  User's email address.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password.
+</ParamField>
+
+## Response
+
+<ResponseField name="access_token" type="string">
+  JWT access token for API authentication.
+</ResponseField>
+
+<ResponseField name="refresh_token" type="string">
+  Opaque refresh token for obtaining new access tokens.
+</ResponseField>
+
+<ResponseField name="token_type" type="string">
+  Always "Bearer".
+</ResponseField>
+
+<ResponseField name="expires_in" type="number">
+  Access token lifetime in seconds.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  User profile with chain identities.
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique user identifier.
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      User's email address.
+    </ResponseField>
+    <ResponseField name="display_name" type="string">
+      User's display name.
+    </ResponseField>
+    <ResponseField name="chain_identities" type="object">
+      Linked blockchain addresses.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.signum.id/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "secure-password-123"
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('https://api.signum.id/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'secure-password-123',
+  }),
+});
+
+const { access_token, user } = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "access_token": "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "rt_abc123def456...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": "user_abc123",
+    "email": "user@example.com",
+    "display_name": "John Doe",
+    "chain_identities": {
+      "solana": ["5Gh7UuKrE7ePX4ghjZN2..."],
+      "evm": ["0x1234...5678"],
+      "canton": "party::signum::user-abc123"
+    }
+  }
+}
+```
+
+```json 401 Unauthorized
+{
+  "error": "Invalid credentials"
+}
+```
+
+```json 403 Forbidden
+{
+  "error": "Account suspended"
+}
+```
+</ResponseExample>

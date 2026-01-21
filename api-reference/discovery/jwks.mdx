@@ -1,0 +1,51 @@
+---
+title: JWKS
+description: "JSON Web Key Set for token verification"
+api: "GET /.well-known/jwks.json"
+---
+
+# JSON Web Key Set (JWKS)
+
+Returns the public keys used to verify JWT signatures.
+
+## Response
+
+Standard JWKS format with ES256 public keys.
+
+<RequestExample>
+```bash cURL
+curl https://api.signum.id/.well-known/jwks.json
+```
+
+```typescript TypeScript
+import * as jose from 'jose';
+
+const JWKS = jose.createRemoteJWKSet(
+  new URL('https://api.signum.id/.well-known/jwks.json')
+);
+
+// Verify a token
+const { payload } = await jose.jwtVerify(token, JWKS, {
+  issuer: 'https://api.signum.id',
+  audience: 'your_client_id',
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "keys": [
+    {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "base64url_encoded_x_coordinate",
+      "y": "base64url_encoded_y_coordinate",
+      "kid": "key_2026-01-01",
+      "alg": "ES256",
+      "use": "sig"
+    }
+  ]
+}
+```
+</ResponseExample>

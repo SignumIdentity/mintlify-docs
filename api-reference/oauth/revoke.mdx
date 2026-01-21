@@ -1,0 +1,53 @@
+---
+title: Revoke
+description: "Revoke an access or refresh token"
+api: "POST /oauth/revoke"
+---
+
+# Revoke Token
+
+Revoke an access token or refresh token. Revoked tokens cannot be used again.
+
+## Request
+
+<ParamField body="token" type="string" required>
+  The token to revoke.
+</ParamField>
+
+<ParamField body="token_type_hint" type="string">
+  Token type: `access_token` or `refresh_token`.
+</ParamField>
+
+## Response
+
+Returns 200 OK even if the token was already revoked or invalid (per RFC 7009).
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.signum.id/oauth/revoke \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "eyJhbGciOiJFUzI1NiIs...",
+    "token_type_hint": "access_token"
+  }'
+```
+
+```typescript TypeScript
+await fetch('https://api.signum.id/oauth/revoke', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: accessToken,
+    token_type_hint: 'access_token',
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "success": true
+}
+```
+</ResponseExample>

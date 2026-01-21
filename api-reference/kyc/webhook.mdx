@@ -1,0 +1,65 @@
+---
+title: Webhook
+description: "KYC provider webhook endpoint"
+api: "POST /kyc/webhook"
+---
+
+# KYC Webhook
+
+Receives webhook callbacks from the KYC provider (Sumsub). This endpoint is called automatically when verification status changes.
+
+<Warning>
+  This endpoint is for KYC provider → Signum communication only. Do not call directly.
+</Warning>
+
+## Authentication
+
+Webhooks are authenticated via signature verification using the KYC provider's secret key.
+
+## Webhook Events
+
+| Event | Description |
+|-------|-------------|
+| `applicantReviewed` | Verification completed (approved or rejected) |
+| `applicantPending` | Additional review required |
+| `applicantOnHold` | Verification paused |
+| `applicantCreated` | New applicant created |
+
+## Processing
+
+When a webhook is received, Signum:
+
+1. Verifies the signature
+2. Updates the user's KYC status in the database
+3. Publishes `kyc.status.changed` event to Kafka
+4. Triggers attestation anchoring (if approved)
+
+## Response
+
+Always returns 200 OK to acknowledge receipt.
+
+<RequestExample>
+```json Webhook Payload
+{
+  "applicantId": "6789abcdef123456",
+  "inspectionId": "inspection_xyz",
+  "correlationId": "user_abc123",
+  "type": "applicantReviewed",
+  "reviewStatus": "completed",
+  "reviewResult": {
+    "reviewAnswer": "GREEN",
+    "moderationComment": "",
+    "clientComment": ""
+  },
+  "createdAt": "2026-01-20T14:00:00.000Z"
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "received": true
+}
+```
+</ResponseExample>

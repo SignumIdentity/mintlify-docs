@@ -1,0 +1,59 @@
+---
+title: OpenID Configuration
+description: "OIDC discovery document"
+api: "GET /.well-known/openid-configuration"
+---
+
+# OpenID Configuration
+
+Returns the OpenID Connect discovery document containing endpoints and capabilities.
+
+## Response
+
+Standard OIDC discovery document fields.
+
+<RequestExample>
+```bash cURL
+curl https://api.signum.id/.well-known/openid-configuration
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "issuer": "https://api.signum.id",
+  "authorization_endpoint": "https://api.signum.id/oauth/authorize",
+  "token_endpoint": "https://api.signum.id/oauth/token",
+  "userinfo_endpoint": "https://api.signum.id/oauth/userinfo",
+  "jwks_uri": "https://api.signum.id/.well-known/jwks.json",
+  "revocation_endpoint": "https://api.signum.id/oauth/revoke",
+  "response_types_supported": ["code"],
+  "subject_types_supported": ["public"],
+  "id_token_signing_alg_values_supported": ["ES256"],
+  "scopes_supported": [
+    "openid",
+    "profile",
+    "email",
+    "offline_access",
+    "chain:read",
+    "chain:write",
+    "kyc:status",
+    "kyc:initiate",
+    "attestation:read"
+  ],
+  "token_endpoint_auth_methods_supported": ["none"],
+  "claims_supported": [
+    "sub",
+    "iss",
+    "aud",
+    "exp",
+    "iat",
+    "name",
+    "email",
+    "email_verified",
+    "picture"
+  ],
+  "code_challenge_methods_supported": ["S256"]
+}
+```
+</ResponseExample>

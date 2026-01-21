@@ -1,0 +1,123 @@
+---
+title: Get Current User
+description: "Retrieve the authenticated user's profile"
+api: "GET /auth/me"
+---
+
+# Get Current User
+
+Retrieve the profile of the currently authenticated user, including chain identities.
+
+## Authorization
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token from login or OAuth2 flow.
+  
+  ```
+  Authorization: Bearer YOUR_ACCESS_TOKEN
+  ```
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  Unique user identifier.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address.
+</ResponseField>
+
+<ResponseField name="display_name" type="string">
+  User's display name.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Account status: `active`, `pending`, or `suspended`.
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 timestamp of account creation.
+</ResponseField>
+
+<ResponseField name="chain_identities" type="object">
+  Linked blockchain addresses by chain.
+  <Expandable title="properties">
+    <ResponseField name="solana" type="string[]">
+      List of Solana wallet addresses (PDAs and linked).
+    </ResponseField>
+    <ResponseField name="evm" type="string[]">
+      List of EVM wallet addresses.
+    </ResponseField>
+    <ResponseField name="canton" type="string">
+      Canton party ID.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="kyc" type="object">
+  KYC verification status.
+  <Expandable title="properties">
+    <ResponseField name="verified" type="boolean">
+      Whether KYC is verified.
+    </ResponseField>
+    <ResponseField name="level" type="string">
+      Verification level: `basic`, `enhanced`, or `institutional`.
+    </ResponseField>
+    <ResponseField name="verified_at" type="string">
+      ISO 8601 timestamp of verification.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl https://api.signum.id/auth/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const response = await fetch('https://api.signum.id/auth/me', {
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+  },
+});
+
+const user = await response.json();
+console.log(user.chain_identities);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": "user_abc123",
+  "email": "user@example.com",
+  "display_name": "John Doe",
+  "status": "active",
+  "created_at": "2026-01-15T12:00:00Z",
+  "chain_identities": {
+    "solana": ["5Gh7UuKrE7ePX4ghjZN2...", "9Kx2BvPL8tqR..."],
+    "evm": ["0x1234...5678"],
+    "canton": "party::signum::user-abc123"
+  },
+  "kyc": {
+    "verified": true,
+    "level": "enhanced",
+    "verified_at": "2026-01-15T14:00:00Z"
+  }
+}
+```
+
+```json 401 Unauthorized
+{
+  "error": "Authorization required"
+}
+```
+
+```json 401 Unauthorized
+{
+  "error": "Invalid or expired token"
+}
+```
+</ResponseExample>

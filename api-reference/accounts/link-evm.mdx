@@ -1,0 +1,112 @@
+---
+title: Link EVM Wallet
+description: "Link an external EVM wallet to your account"
+api: "POST /accounts/evm/link"
+---
+
+# Link EVM Wallet
+
+Link an existing external wallet (MetaMask, Ledger, etc.) to your Signum account by signing a verification message.
+
+## Authorization
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token from login or OAuth2 flow.
+</ParamField>
+
+## Request
+
+<ParamField body="address" type="string" required>
+  EVM wallet address to link.
+</ParamField>
+
+<ParamField body="signature" type="string" required>
+  Signature of the verification message.
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  The original message that was signed. Must include user ID.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Whether the wallet was linked successfully.
+</ResponseField>
+
+<ResponseField name="wallet" type="object">
+  The linked wallet details.
+</ResponseField>
+
+## Signing Message Format
+
+The message must follow this format:
+
+```
+Link wallet to Signum: {userId}
+Timestamp: {unixTimestamp}
+```
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.signum.id/accounts/evm/link \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address": "0xabcd...ef01",
+    "signature": "0x1234...signature...",
+    "message": "Link wallet to Signum: user_abc123\nTimestamp: 1706796000000"
+  }'
+```
+
+```typescript TypeScript
+import { useWalletClient } from 'wagmi';
+
+const { data: walletClient } = useWalletClient();
+
+// Create message
+const message = `Link wallet to Signum: ${userId}\nTimestamp: ${Date.now()}`;
+
+// Sign with connected wallet
+const signature = await walletClient.signMessage({ message });
+
+// Submit to Signum
+const response = await fetch('https://api.signum.id/accounts/evm/link', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    address: walletClient.account.address,
+    signature,
+    message,
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "success": true,
+  "wallet": {
+    "address": "0xabcd...ef01",
+    "type": "external",
+    "linkedAt": "2026-01-20T12:00:00Z"
+  }
+}
+```
+
+```json 400 Bad Request
+{
+  "error": "Invalid signature"
+}
+```
+
+```json 409 Conflict
+{
+  "error": "Wallet already linked to another account"
+}
+```
+</ResponseExample>

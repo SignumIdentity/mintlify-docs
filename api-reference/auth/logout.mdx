@@ -1,0 +1,67 @@
+---
+title: Logout
+description: "Revoke authentication tokens"
+api: "POST /auth/logout"
+---
+
+# Logout
+
+Revoke the current access token and optionally the refresh token.
+
+## Authorization
+
+<ParamField header="Authorization" type="string">
+  Bearer token to revoke. Optional but recommended.
+  
+  ```
+  Authorization: Bearer YOUR_ACCESS_TOKEN
+  ```
+</ParamField>
+
+## Request
+
+<ParamField body="refresh_token" type="string">
+  Optional refresh token to revoke.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Always `true` for logout requests.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.signum.id/auth/logout \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "rt_abc123def456..."
+  }'
+```
+
+```typescript TypeScript
+await fetch('https://api.signum.id/auth/logout', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    refresh_token: storedRefreshToken,
+  }),
+});
+
+// Clear stored tokens
+localStorage.removeItem('access_token');
+localStorage.removeItem('refresh_token');
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "success": true
+}
+```
+</ResponseExample>

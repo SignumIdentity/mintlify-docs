@@ -1,0 +1,107 @@
+---
+title: Token
+description: "Exchange authorization code for tokens"
+api: "POST /oauth/token"
+---
+
+# Token Exchange
+
+Exchange an authorization code for access, ID, and refresh tokens.
+
+## Request
+
+<ParamField body="grant_type" type="string" required>
+  Token grant type:
+  - `authorization_code` - Exchange code for tokens
+  - `refresh_token` - Refresh access token
+</ParamField>
+
+<ParamField body="client_id" type="string" required>
+  Your application's client ID.
+</ParamField>
+
+<ParamField body="code" type="string">
+  Authorization code from callback. Required for `authorization_code` grant.
+</ParamField>
+
+<ParamField body="redirect_uri" type="string">
+  Must match the original authorize request. Required for `authorization_code` grant.
+</ParamField>
+
+<ParamField body="code_verifier" type="string">
+  PKCE code verifier. Required for `authorization_code` grant.
+</ParamField>
+
+<ParamField body="refresh_token" type="string">
+  Refresh token. Required for `refresh_token` grant.
+</ParamField>
+
+## Response
+
+<ResponseField name="access_token" type="string">
+  JWT access token for API authentication.
+</ResponseField>
+
+<ResponseField name="token_type" type="string">
+  Always "Bearer".
+</ResponseField>
+
+<ResponseField name="expires_in" type="number">
+  Access token lifetime in seconds.
+</ResponseField>
+
+<ResponseField name="refresh_token" type="string">
+  Opaque refresh token (if `offline_access` scope was granted).
+</ResponseField>
+
+<ResponseField name="id_token" type="string">
+  JWT ID token with user claims (if `openid` scope was granted).
+</ResponseField>
+
+<ResponseField name="scope" type="string">
+  Granted scopes (may differ from requested).
+</ResponseField>
+
+<RequestExample>
+```bash cURL (Authorization Code)
+curl -X POST https://api.signum.id/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "grant_type": "authorization_code",
+    "client_id": "app_abc123",
+    "code": "auth_code_xyz123",
+    "redirect_uri": "https://yourapp.com/callback",
+    "code_verifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+  }'
+```
+
+```bash cURL (Refresh Token)
+curl -X POST https://api.signum.id/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "grant_type": "refresh_token",
+    "client_id": "app_abc123",
+    "refresh_token": "rt_abc123..."
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "access_token": "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "rt_new456...",
+  "id_token": "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "scope": "openid profile email chain:read"
+}
+```
+
+```json 400 Bad Request
+{
+  "error": "invalid_grant",
+  "error_description": "Authorization code expired or invalid"
+}
+```
+</ResponseExample>

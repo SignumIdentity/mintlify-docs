@@ -1,0 +1,203 @@
+---
+title: Accounts
+description: "Manage multi-chain identities with the TypeScript SDK"
+---
+
+# Accounts
+
+The Accounts module provides methods for managing multi-chain identities.
+
+## Get All Accounts
+
+Retrieve all chain identities for the authenticated user:
+
+```typescript
+const account = await signum.accounts.getAll(accessToken);
+
+// User profile
+console.log(account.user.id);
+console.log(account.user.email);
+
+// Chain identities
+console.log(account.chains.solana);
+console.log(account.chains.evm);
+console.log(account.chains.canton);
+
+// KYC status
+console.log(account.kyc.verified);
+console.log(account.kyc.level);
+```
+
+## Create Embedded Wallets
+
+Create Privy-managed wallets for EVM and Solana:
+
+```typescript
+const wallets = await signum.accounts.createWallets(accessToken);
+
+console.log('EVM address:', wallets.evm.address);
+console.log('Solana address:', wallets.solana.address);
+```
+
+## Solana Operations
+
+### Get Solana Status
+
+```typescript
+const status = await signum.solana.getStatus(accessToken);
+
+if (status.hasWallet) {
+  console.log('PDA:', status.wallet.address);
+  console.log('Attestation:', status.attestation?.verified);
+}
+```
+
+### Create PDA Wallet
+
+```typescript
+const result = await signum.solana.createWallet(accessToken);
+
+console.log('PDA:', result.wallet.address);
+console.log('Transaction:', result.transaction?.signature);
+```
+
+### List Solana Wallets
+
+```typescript
+const { wallets } = await signum.solana.listWallets(accessToken);
+
+wallets.forEach(wallet => {
+  console.log(`${wallet.type}: ${wallet.address}`);
+});
+```
+
+### Link External Wallet
+
+```typescript
+import { useWallet } from '@solana/wallet-adapter-react';
+
+const { publicKey, signMessage } = useWallet();
+
+// Create and sign message
+const message = `Link wallet to Signum: ${userId}\nTimestamp: ${Date.now()}`;
+const signature = await signMessage(new TextEncoder().encode(message));
+
+// Link wallet
+await signum.solana.linkWallet(accessToken, {
+  address: publicKey.toBase58(),
+  signature: bs58.encode(signature),
+  message,
+});
+```
+
+### Derive PDA Locally
+
+Derive a PDA without making an API call:
+
+```typescript
+import { getWalletPDA, hashEmailAsync } from '@signum/solana-sdk';
+
+const emailHash = await hashEmailAsync('user@example.com');
+const [pda, bump] = getWalletPDA(emailHash, PROGRAM_ID);
+
+console.log('PDA:', pda.toBase58());
+```
+
+## EVM Operations
+
+### Link External Wallet
+
+```typescript
+import { useWalletClient } from 'wagmi';
+
+const { data: walletClient } = useWalletClient();
+
+// Create and sign message
+const message = `Link wallet to Signum: ${userId}\nTimestamp: ${Date.now()}`;
+const signature = await walletClient.signMessage({ message });
+
+// Link wallet
+await signum.accounts.linkEvm(accessToken, {
+  address: walletClient.account.address,
+  signature,
+  message,
+});
+```
+
+### Set Primary Wallet
+
+```typescript
+await signum.accounts.setEvmPrimary(accessToken, {
+  address: '0x1234...',
+});
+```
+
+### Get Balance
+
+```typescript
+const balance = await signum.accounts.getEvmBalance(
+  accessToken,
+  '0x1234...', // address
+  1            // chainId (Ethereum mainnet)
+);
+
+console.log(`${balance.native} ${balance.symbol}`);
+console.log(`$${balance.usd}`);
+```
+
+## Canton Operations
+
+### Create Canton Party
+
+```typescript
+const result = await signum.accounts.createCanton(accessToken);
+
+console.log('Party ID:', result.canton.partyId);
+console.log('Participant:', result.canton.participant);
+```
+
+## Account Summary
+
+Get a quick overview of all chain presence:
+
+```typescript
+const summary = await signum.accounts.getSummary(accessToken);
+
+console.log('Has Solana:', summary.hasWallets.solana);
+console.log('Has EVM:', summary.hasWallets.evm);
+console.log('Has Canton:', summary.hasWallets.canton);
+console.log('KYC Verified:', summary.kycVerified);
+```
+
+## Types
+
+```typescript
+import type {
+  Account,
+  ChainIdentities,
+  SolanaChainIdentity,
+  EvmChainIdentity,
+  CantonChainIdentity,
+  SolanaWallet,
+  EvmWallet,
+  KycStatus,
+} from '@signum/sdk';
+
+// Full account type
+interface Account {
+  user: {
+    id: string;
+    email: string;
+    displayName?: string;
+  };
+  chains: ChainIdentities;
+  kyc: KycStatus;
+}
+
+// Chain identities
+interface ChainIdentities {
+  solana?: SolanaChainIdentity;
+  evm?: EvmChainIdentity;
+  canton?: CantonChainIdentity;
+}
+```

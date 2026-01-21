@@ -1,0 +1,99 @@
+---
+title: Link Solana Wallet
+description: "Link an external Solana wallet"
+api: "POST /solana/link"
+---
+
+# Link Solana Wallet
+
+Link an external Solana wallet to your Signum account by signing a verification message.
+
+## Authorization
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token from login or OAuth2 flow.
+</ParamField>
+
+## Request
+
+<ParamField body="address" type="string" required>
+  Solana wallet address to link.
+</ParamField>
+
+<ParamField body="signature" type="string" required>
+  Base58-encoded signature of the verification message.
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  The original message that was signed.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Whether the wallet was linked successfully.
+</ResponseField>
+
+<ResponseField name="wallet" type="object">
+  The linked wallet details.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.signum.id/solana/link \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address": "9Kx2BvPL8tqRxyz7890abcdef1234567890abcdef",
+    "signature": "base58_signature...",
+    "message": "Link wallet to Signum: user_abc123\nTimestamp: 1706796000000"
+  }'
+```
+
+```typescript TypeScript
+import { useWallet } from '@solana/wallet-adapter-react';
+
+const { publicKey, signMessage } = useWallet();
+
+// Create message
+const message = `Link wallet to Signum: ${userId}\nTimestamp: ${Date.now()}`;
+const encodedMessage = new TextEncoder().encode(message);
+
+// Sign with connected wallet
+const signature = await signMessage(encodedMessage);
+const signatureBase58 = bs58.encode(signature);
+
+// Submit to Signum
+const response = await fetch('https://api.signum.id/solana/link', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    address: publicKey.toBase58(),
+    signature: signatureBase58,
+    message,
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "success": true,
+  "wallet": {
+    "address": "9Kx2BvPL8tqRxyz7890abcdef1234567890abcdef",
+    "type": "external",
+    "linkedAt": "2026-01-20T12:00:00Z"
+  }
+}
+```
+
+```json 400 Bad Request
+{
+  "error": "Invalid signature"
+}
+```
+</ResponseExample>

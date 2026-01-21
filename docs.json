@@ -1,122 +1,145 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
-  "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+  "name": "Signum",
+  "logo": {
+    "light": "/logo/signum-light.png",
+    "dark": "/logo/signum-dark.png"
   },
   "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#000000",
+    "light": "#404040",
+    "dark": "#FFFFFF"
+  },
+  "topbarLinks": [
+    {
+      "name": "API Status",
+      "url": "https://status.signum.id"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Dashboard",
+    "url": "https://app.signum.id"
+  },
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/SignumIdentity"
+    },
+    {
+      "name": "Community",
+      "icon": "discord",
+      "url": "https://discord.gg/signum"
+    }
+  ],
   "navigation": {
-    "tabs": [
+    "groups": [
       {
-        "tab": "Guides",
-        "groups": [
-          {
-            "group": "Getting started",
-            "pages": [
-              "index",
-              "quickstart",
-              "development"
-            ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          }
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "architecture"
         ]
       },
       {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
-          }
+        "group": "Authentication",
+        "pages": [
+          "authentication",
+          "authentication/oauth2-flows",
+          "authentication/tokens",
+          "authentication/scopes"
+        ]
+      },
+      {
+        "group": "Multi-Chain Identity",
+        "pages": [
+          "chains/overview",
+          "chains/solana",
+          "chains/evm",
+          "chains/canton"
+        ]
+      },
+      {
+        "group": "KYC & Compliance",
+        "pages": [
+          "kyc/overview",
+          "kyc/verification-flow",
+          "kyc/attestations"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api-reference/introduction",
+          "api-reference/auth/register",
+          "api-reference/auth/login",
+          "api-reference/auth/refresh",
+          "api-reference/auth/me",
+          "api-reference/auth/logout"
+        ]
+      },
+      {
+        "group": "OAuth2 / OIDC",
+        "pages": [
+          "api-reference/oauth/authorize",
+          "api-reference/oauth/token",
+          "api-reference/oauth/userinfo",
+          "api-reference/oauth/revoke"
+        ]
+      },
+      {
+        "group": "Accounts",
+        "pages": [
+          "api-reference/accounts/get-accounts",
+          "api-reference/accounts/create-wallets",
+          "api-reference/accounts/link-evm",
+          "api-reference/accounts/create-canton"
+        ]
+      },
+      {
+        "group": "Solana",
+        "pages": [
+          "api-reference/solana/status",
+          "api-reference/solana/wallets",
+          "api-reference/solana/create-pda",
+          "api-reference/solana/link"
+        ]
+      },
+      {
+        "group": "KYC Endpoints",
+        "pages": [
+          "api-reference/kyc/status",
+          "api-reference/kyc/initiate",
+          "api-reference/kyc/webhook"
+        ]
+      },
+      {
+        "group": "Discovery",
+        "pages": [
+          "api-reference/discovery/openid-config",
+          "api-reference/discovery/jwks"
+        ]
+      },
+      {
+        "group": "TypeScript SDK",
+        "pages": [
+          "sdks/typescript/installation",
+          "sdks/typescript/authentication",
+          "sdks/typescript/accounts",
+          "sdks/typescript/types"
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
+    ]
   },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+  "footerSocials": {
+    "x": "https://x.com/signumid",
+    "github": "https://github.com/SignumIdentity",
+    "linkedin": "https://linkedin.com/company/signum-identity"
   },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
+  "api": {
+    "baseUrl": "https://api.signum.id"
   },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
-  }
+  "openapi": "/api/openapi.json"
 }
