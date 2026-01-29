@@ -57,8 +57,7 @@
         "pages": [
           "chains/overview",
           "chains/solana",
-          "chains/evm",
-          "chains/canton"
+          "chains/evm"
         ]
       },
       {
@@ -94,8 +93,7 @@
         "pages": [
           "api-reference/accounts/get-accounts",
           "api-reference/accounts/create-wallets",
-          "api-reference/accounts/link-evm",
-          "api-reference/accounts/create-canton"
+          "api-reference/accounts/link-evm"
         ]
       },
       {

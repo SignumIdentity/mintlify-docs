@@ -1,25 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" fill="none">
   <style>
     .box { fill: #1a1a1a; stroke: #333; stroke-width: 1; }
     .box-highlight { fill: #0a0a0a; stroke: #fff; stroke-width: 2; }
+    .box-active { fill: #0d2818; stroke: #22c55e; stroke-width: 2; }
+    .box-planned { fill: #1a1a2e; stroke: #6366f1; stroke-width: 1; stroke-dasharray: 4,2; }
     .text { fill: #fff; font-family: Inter, system-ui, sans-serif; font-size: 14px; }
     .text-small { fill: #888; font-family: Inter, system-ui, sans-serif; font-size: 11px; }
     .text-title { fill: #fff; font-family: Inter, system-ui, sans-serif; font-size: 16px; font-weight: 600; }
+    .text-badge { fill: #22c55e; font-family: Inter, system-ui, sans-serif; font-size: 9px; font-weight: 600; }
+    .text-badge-planned { fill: #6366f1; font-family: Inter, system-ui, sans-serif; font-size: 9px; font-weight: 600; }
     .line { stroke: #444; stroke-width: 1; }
     .line-arrow { stroke: #666; stroke-width: 2; marker-end: url(#arrow); }
+    .line-kafka { stroke: #f59e0b; stroke-width: 2; stroke-dasharray: 6,3; marker-end: url(#arrow-kafka); }
   </style>
   
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
       <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
     </marker>
+    <marker id="arrow-kafka" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
+    </marker>
   </defs>
   
   <!-- Background -->
-  <rect width="800" height="400" fill="#0a0a0a"/>
+  <rect width="800" height="450" fill="#0a0a0a"/>
   
   <!-- Title -->
-  <text x="400" y="30" class="text-title" text-anchor="middle">Signum Identity Platform Architecture</text>
+  <text x="400" y="30" class="text-title" text-anchor="middle">Signum Identity Platform (CQRS Architecture)</text>
   
   <!-- Your Application -->
   <rect x="40" y="60" width="140" height="80" rx="8" class="box"/>
@@ -32,47 +40,86 @@
   
   <!-- Internal boxes -->
   <rect x="260" y="100" width="90" height="50" rx="4" class="box"/>
-  <text x="305" y="130" class="text-small" text-anchor="middle">OAuth2/OIDC</text>
+  <text x="305" y="125" class="text-small" text-anchor="middle">OAuth2/OIDC</text>
+  <text x="305" y="140" class="text-small" text-anchor="middle">(200 OK)</text>
   
   <rect x="360" y="100" width="90" height="50" rx="4" class="box"/>
-  <text x="405" y="130" class="text-small" text-anchor="middle">KYC Service</text>
+  <text x="405" y="125" class="text-small" text-anchor="middle">KYC Service</text>
+  <text x="405" y="140" class="text-small" text-anchor="middle">(Webhooks)</text>
   
   <rect x="460" y="100" width="90" height="50" rx="4" class="box"/>
-  <text x="505" y="130" class="text-small" text-anchor="middle">Attestations</text>
+  <text x="505" y="125" class="text-small" text-anchor="middle">Commands</text>
+  <text x="505" y="140" class="text-small" text-anchor="middle">(202 Async)</text>
   
   <rect x="310" y="165" width="180" height="40" rx="4" class="box"/>
-  <text x="400" y="190" class="text-small" text-anchor="middle">Chain Identity Manager</text>
+  <text x="400" y="190" class="text-small" text-anchor="middle">Queries (DB Read)</text>
   
   <!-- KYC Provider -->
   <rect x="620" y="60" width="140" height="80" rx="8" class="box"/>
   <text x="690" y="95" class="text" text-anchor="middle">KYC Provider</text>
-  <text x="690" y="115" class="text-small" text-anchor="middle">(Sumsub)</text>
+  <text x="690" y="115" class="text-small" text-anchor="middle">(Sumsub, Persona)</text>
+  
+  <!-- Kafka Event Bus -->
+  <rect x="240" y="240" width="320" height="40" rx="8" style="fill:#1a1207; stroke:#f59e0b; stroke-width:2;"/>
+  <text x="400" y="265" class="text" text-anchor="middle" style="fill:#f59e0b;">Kafka Event Bus (Commands + Events)</text>
+  
+  <!-- Workers -->
+  <rect x="620" y="160" width="140" height="120" rx="8" class="box"/>
+  <text x="690" y="185" class="text" text-anchor="middle">Workers</text>
+  <text x="690" y="210" class="text-small" text-anchor="middle">attestation-worker</text>
+  <text x="690" y="225" class="text-small" text-anchor="middle">transfer-worker</text>
+  <text x="690" y="240" class="text-small" text-anchor="middle">wallet-worker</text>
+  <text x="690" y="255" class="text-small" text-anchor="middle">db-sync-worker</text>
+  <text x="690" y="270" class="text-small" text-anchor="middle">solana-listener</text>
   
   <!-- Blockchains -->
-  <rect x="140" y="280" width="120" height="70" rx="8" class="box"/>
-  <text x="200" y="310" class="text" text-anchor="middle">Solana</text>
-  <text x="200" y="330" class="text-small" text-anchor="middle">PDAs + Token2022</text>
+  <rect x="60" y="320" width="130" height="80" rx="8" class="box-active"/>
+  <text x="125" y="345" class="text" text-anchor="middle">Solana</text>
+  <text x="125" y="365" class="text-small" text-anchor="middle">PDAs + Token-2022</text>
+  <text x="125" y="385" class="text-badge" text-anchor="middle">ACTIVE</text>
   
-  <rect x="300" y="280" width="120" height="70" rx="8" class="box"/>
-  <text x="360" y="310" class="text" text-anchor="middle">EVM Chains</text>
-  <text x="360" y="330" class="text-small" text-anchor="middle">ERC-3643 Registry</text>
+  <rect x="210" y="320" width="130" height="80" rx="8" class="box-planned"/>
+  <text x="275" y="345" class="text" text-anchor="middle">EVM Chains</text>
+  <text x="275" y="365" class="text-small" text-anchor="middle">ERC-3643 Registry</text>
+  <text x="275" y="385" class="text-badge-planned" text-anchor="middle">PLANNED</text>
   
-  <rect x="460" y="280" width="120" height="70" rx="8" class="box"/>
-  <text x="520" y="310" class="text" text-anchor="middle">Canton</text>
-  <text x="520" y="330" class="text-small" text-anchor="middle">DAML Contracts</text>
+  <rect x="360" y="320" width="130" height="80" rx="8" class="box-planned"/>
+  <text x="425" y="345" class="text" text-anchor="middle">ARC (Circle)</text>
+  <text x="425" y="365" class="text-small" text-anchor="middle">USDC Chain</text>
+  <text x="425" y="385" class="text-badge-planned" text-anchor="middle">PLANNED</text>
+  
+  <rect x="510" y="320" width="130" height="80" rx="8" class="box-planned"/>
+  <text x="575" y="345" class="text" text-anchor="middle">Arch (Bitcoin)</text>
+  <text x="575" y="365" class="text-small" text-anchor="middle">BTC Layer</text>
+  <text x="575" y="385" class="text-badge-planned" text-anchor="middle">PLANNED</text>
   
   <!-- Infrastructure -->
-  <rect x="620" y="280" width="140" height="70" rx="8" class="box"/>
-  <text x="690" y="305" class="text" text-anchor="middle">Infrastructure</text>
-  <text x="690" y="325" class="text-small" text-anchor="middle">Kafka • Dragonfly</text>
-  <text x="690" y="340" class="text-small" text-anchor="middle">Supabase</text>
+  <rect x="660" y="320" width="120" height="80" rx="8" class="box"/>
+  <text x="720" y="345" class="text" text-anchor="middle">Storage</text>
+  <text x="720" y="365" class="text-small" text-anchor="middle">Supabase (DB)</text>
+  <text x="720" y="380" class="text-small" text-anchor="middle">Dragonfly (Cache)</text>
   
   <!-- Arrows -->
+  <!-- App to Signum -->
   <line x1="180" y1="100" x2="235" y2="100" class="line-arrow"/>
+  
+  <!-- Signum to KYC -->
   <line x1="560" y1="100" x2="615" y2="100" class="line-arrow"/>
-  <line x1="400" y1="220" x2="200" y2="275" class="line-arrow"/>
-  <line x1="400" y1="220" x2="360" y2="275" class="line-arrow"/>
-  <line x1="400" y1="220" x2="520" y2="275" class="line-arrow"/>
-  <line x1="560" y1="185" x2="615" y2="280" class="line-arrow"/>
+  
+  <!-- Commands to Kafka -->
+  <line x1="505" y1="150" x2="505" y2="235" class="line-kafka"/>
+  
+  <!-- Kafka to Workers -->
+  <line x1="560" y1="260" x2="615" y2="220" class="line-kafka"/>
+  
+  <!-- Workers to Chains -->
+  <line x1="620" y1="270" x2="155" y2="315" class="line-arrow"/>
+  <line x1="620" y1="270" x2="275" y2="315" class="line-arrow"/>
+  
+  <!-- Workers to Storage -->
+  <line x1="720" y1="280" x2="720" y2="315" class="line-arrow"/>
+  
+  <!-- Queries to Storage -->
+  <line x1="400" y1="205" x2="660" y2="340" class="line-arrow"/>
   
 </svg>

@@ -5,24 +5,60 @@ description: "Multi-chain wallet management for Ethereum and L2s"
 
 # EVM Integration
 
-Signum supports EVM-compatible chains including Ethereum, Polygon, Arbitrum, Base, and Optimism. Users can link existing wallets or create new embedded wallets.
+<Note>
+  EVM chain integration is currently in development. This documentation describes the planned implementation.
+</Note>
 
-## Supported Networks
+Signum will support EVM-compatible chains including Ethereum, Polygon, Arbitrum, and Base. Users can link existing wallets or create new embedded wallets.
+
+## Roadmap Status
 
 | Network | Chain ID | Status |
 |---------|----------|--------|
-| Ethereum Mainnet | 1 | Production |
-| Polygon | 137 | Production |
-| Arbitrum One | 42161 | Production |
-| Base | 8453 | Production |
-| Optimism | 10 | Production |
+| Ethereum Mainnet | 1 | **Planned** |
+| Polygon | 137 | **Planned** |
+| Base | 8453 | **Planned** |
+| Arbitrum One | 42161 | **Planned** |
+| Optimism | 10 | Future |
 | Sepolia (testnet) | 11155111 | Development |
+
+## Planned Architecture
+
+```mermaid
+flowchart TB
+    subgraph SignumAPI ["Signum API"]
+        Commands["Commands (202)"]
+        Queries["Queries (200)"]
+    end
+
+    subgraph Kafka ["Event Bus"]
+        EVMCmd["signum.evm.commands"]
+    end
+
+    subgraph Workers ["Workers"]
+        EVMWorker["evm-worker"]
+    end
+
+    subgraph Chains ["EVM Chains"]
+        Ethereum["Ethereum"]
+        Polygon["Polygon"]
+        Base["Base"]
+    end
+
+    Commands --> Kafka
+    Kafka --> EVMWorker
+    EVMWorker --> Ethereum
+    EVMWorker --> Polygon
+    EVMWorker --> Base
+    
+    Queries --> DB[(Database)]
+```
 
 ## Wallet Types
 
 ### Embedded Wallets
 
-Created via Privy with MPC key management:
+Will be created via Privy with MPC key management:
 
 ```mermaid
 flowchart LR
@@ -66,7 +102,7 @@ await fetch('/accounts/evm/link', {
 });
 ```
 
-## API Endpoints
+## Planned API Endpoints
 
 ### Create Embedded Wallet
 
@@ -84,7 +120,7 @@ Authorization: Bearer YOUR_TOKEN
   "evm": {
     "address": "0x1234...5678",
     "type": "embedded",
-    "chains": [1, 137, 42161, 8453, 10]
+    "chains": [1, 137, 8453]
   },
   "solana": {
     "address": "5Gh7UuKrE7ePX4ghjZN2...",
@@ -107,42 +143,9 @@ Content-Type: application/json
 }
 ```
 
-### Set Primary Wallet
-
-```bash
-POST /accounts/evm/primary
-Authorization: Bearer YOUR_TOKEN
-Content-Type: application/json
-
-{
-  "address": "0xabcd...ef01"
-}
-```
-
-### Get Wallet Balance
-
-```bash
-GET /accounts/evm/0x1234...5678/balance?chain=1
-Authorization: Bearer YOUR_TOKEN
-```
-
-**Response:**
-
-```json
-{
-  "address": "0x1234...5678",
-  "chainId": 1,
-  "balance": {
-    "native": "1.5",
-    "symbol": "ETH",
-    "usd": 3750.00
-  }
-}
-```
-
 ## Attestation Architecture
 
-EVM attestations use ERC-3643 compatible Identity Registry contracts:
+EVM attestations will use ERC-3643 compatible Identity Registry contracts:
 
 ```solidity
 interface IIdentityRegistry {
@@ -156,16 +159,15 @@ interface IIdentityRegistry {
 }
 ```
 
-### Registry Addresses
+### Registry Contracts
 
-| Network | Registry Contract |
-|---------|-------------------|
-| Ethereum | `0x...` (coming soon) |
-| Polygon | `0x...` (coming soon) |
-| Arbitrum | `0x...` (coming soon) |
-| Base | `0x...` (coming soon) |
+| Network | Registry Contract | Status |
+|---------|-------------------|--------|
+| Ethereum | TBD | Planned |
+| Polygon | TBD | Planned |
+| Base | TBD | Planned |
 
-## TypeScript SDK
+## TypeScript SDK (Planned)
 
 ```typescript
 import { SignumClient } from '@signum/sdk';
@@ -175,7 +177,6 @@ const signum = new SignumClient({ baseUrl: 'https://api.signum.id' });
 // Create embedded wallets
 const wallets = await signum.accounts.createWallets(accessToken);
 console.log('EVM:', wallets.evm.address);
-console.log('Solana:', wallets.solana.address);
 
 // Link external wallet
 await signum.accounts.linkEvm(accessToken, {
@@ -192,20 +193,6 @@ const balance = await signum.accounts.getEvmBalance(
 );
 ```
 
-## Multi-Chain Operations
-
-Embedded wallets have the same address on all EVM chains:
-
-```typescript
-// Same address, different chains
-const chains = [1, 137, 42161, 8453, 10];
-
-for (const chainId of chains) {
-  const balance = await signum.accounts.getEvmBalance(token, address, chainId);
-  console.log(`Chain ${chainId}: ${balance.native} ${balance.symbol}`);
-}
-```
-
 ## Security Model
 
 <CardGroup cols={2}>
@@ -217,23 +204,18 @@ for (const chainId of chains) {
   </Card>
 </CardGroup>
 
-### Transaction Signing (Embedded)
+## Current Status
 
-For embedded wallets, Signum can sign transactions on behalf of users:
+EVM integration is the next priority after Solana stabilization:
 
-```typescript
-// Request transaction signing
-const tx = await signum.evm.signTransaction(accessToken, {
-  chainId: 137,
-  to: '0xrecipient...',
-  value: '1000000000000000000', // 1 MATIC
-  data: '0x',
-});
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Design | Architecture and contracts | Complete |
+| Contracts | ERC-3643 registry deployment | In Progress |
+| API | Endpoint implementation | Planned |
+| Workers | evm-worker service | Planned |
+| Testing | Integration tests | Planned |
 
-// Submit to network
-const hash = await provider.sendTransaction(tx);
-```
-
-<Note>
-  Transaction signing requires additional scopes and may require user confirmation depending on transaction type.
-</Note>
+<Info>
+  Want early access to EVM integration? Contact [support@signum.id](mailto:support@signum.id).
+</Info>

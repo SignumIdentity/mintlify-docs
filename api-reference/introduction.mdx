@@ -5,7 +5,7 @@ description: "Complete REST API documentation for the Signum Identity Platform"
 
 # API Reference
 
-The Signum API is a RESTful API that returns JSON responses. All endpoints use standard HTTP methods and status codes.
+The Signum API is a RESTful API that returns JSON responses. It implements a **CQRS (Command Query Responsibility Segregation)** pattern for blockchain operations.
 
 ## Base URL
 
@@ -22,6 +22,69 @@ The Signum API is a RESTful API that returns JSON responses. All endpoints use s
   </Tab>
 </Tabs>
 
+## CQRS Pattern
+
+The API separates **commands** (write operations) from **queries** (read operations):
+
+```mermaid
+flowchart LR
+    subgraph Commands ["Commands (202 Accepted)"]
+        C1["POST /solana/wallets"]
+        C2["POST /attestations"]
+        C3["DELETE /attestations/:id"]
+    end
+
+    subgraph Queries ["Queries (200 OK)"]
+        Q1["GET /accounts"]
+        Q2["GET /solana/status"]
+        Q3["GET /attestations"]
+    end
+
+    subgraph Processing ["Async Processing"]
+        Kafka[Kafka]
+        Workers[Worker Services]
+        Chain[Blockchain]
+    end
+
+    Commands --> Kafka
+    Kafka --> Workers
+    Workers --> Chain
+    
+    Queries --> DB[(Database)]
+```
+
+### Command Endpoints
+
+Commands are processed asynchronously. The API returns immediately with a tracking ID:
+
+| Endpoint | Command | Worker |
+|----------|---------|--------|
+| `POST /solana/wallets` | `CREATE_WALLET_PDA` | wallet-worker |
+| `POST /attestations` | `CREATE_ATTESTATION` | attestation-worker |
+| `DELETE /attestations/:id` | `REVOKE_ATTESTATION` | attestation-worker |
+
+**Example Command Response:**
+
+```json
+{
+  "walletId": "wallet_abc123",
+  "pdaAddress": "5Gh7UuKrE7ePX4ghjZN2...",
+  "status": "pending"
+}
+```
+
+### Query Endpoints
+
+Queries read from the database (eventually consistent with blockchain state):
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /accounts` | List all chain identities |
+| `GET /accounts/wallets` | Get embedded wallets |
+| `GET /solana/status` | Get Solana wallet status |
+| `GET /attestations` | List user's attestations |
+| `GET /attestations/:id` | Get attestation by ID |
+
 ## Authentication
 
 Most endpoints require authentication via Bearer token. Include the access token in the `Authorization` header:
@@ -37,7 +100,7 @@ Obtain an access token by:
 
 ## Response Format
 
-### Success Response
+### Success Response (200/201)
 
 ```json
 {
@@ -45,6 +108,18 @@ Obtain an access token by:
     "id": "user_abc123",
     "email": "user@example.com"
   }
+}
+```
+
+### Accepted Response (202)
+
+For async commands:
+
+```json
+{
+  "walletId": "wallet_abc123",
+  "status": "pending",
+  "message": "Wallet creation queued"
 }
 ```
 
@@ -59,17 +134,18 @@ Obtain an access token by:
 
 ## HTTP Status Codes
 
-| Code | Description |
-|------|-------------|
-| `200` | Request succeeded |
-| `201` | Resource created |
-| `400` | Bad request - Invalid parameters |
-| `401` | Unauthorized - Missing or invalid token |
-| `403` | Forbidden - Insufficient permissions |
-| `404` | Not found - Resource doesn't exist |
-| `409` | Conflict - Resource already exists |
-| `429` | Too many requests - Rate limited |
-| `500` | Server error - Something went wrong |
+| Code | Description | Usage |
+|------|-------------|-------|
+| `200` | OK | Successful query or sync operation |
+| `201` | Created | Resource created synchronously |
+| `202` | Accepted | Command queued for async processing |
+| `400` | Bad Request | Invalid parameters |
+| `401` | Unauthorized | Missing or invalid token |
+| `403` | Forbidden | Insufficient permissions |
+| `404` | Not Found | Resource doesn't exist |
+| `409` | Conflict | Resource already exists |
+| `429` | Too Many Requests | Rate limited |
+| `500` | Server Error | Something went wrong |
 
 ## Rate Limiting
 
@@ -80,6 +156,7 @@ API requests are rate-limited to prevent abuse:
 | `/auth/*` | 10/min | 100/min |
 | `/oauth/*` | 50/min | 500/min |
 | `/accounts/*` | - | 1000/min |
+| `/solana/*` | - | 500/min |
 | `/kyc/*` | - | 100/min |
 
 Rate limit headers are included in responses:
@@ -123,7 +200,7 @@ The complete OpenAPI 3.0 specification is available at:
     Unified chain identity management
   </Card>
   <Card title="Solana" icon="sun" href="/api-reference/solana/status">
-    Solana PDA wallet operations
+    Solana PDA wallet operations (CQRS)
   </Card>
   <Card title="KYC" icon="id-card" href="/api-reference/kyc/status">
     Identity verification endpoints
@@ -132,3 +209,56 @@ The complete OpenAPI 3.0 specification is available at:
     OIDC discovery and JWKS
   </Card>
 </CardGroup>
+
+## Endpoint Summary
+
+### Authentication (`/auth/*`)
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| POST | `/auth/register` | Create new user account | 201 |
+| POST | `/auth/login` | Authenticate user | 200 |
+| POST | `/auth/refresh` | Refresh access token | 200 |
+| GET | `/auth/me` | Get current user | 200 |
+| POST | `/auth/logout` | Invalidate tokens | 200 |
+
+### OAuth2/OIDC (`/oauth/*`)
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| GET | `/oauth/authorize` | Start OAuth flow | 302 |
+| POST | `/oauth/token` | Exchange code for tokens | 200 |
+| GET | `/oauth/userinfo` | Get user profile | 200 |
+| POST | `/oauth/revoke` | Revoke token | 200 |
+
+### Accounts (`/accounts/*`)
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| GET | `/accounts` | Get all chain identities | 200 |
+| POST | `/accounts/wallets` | Create embedded wallets | 201 |
+| POST | `/accounts/wallets/sync` | Sync from Privy | 200 |
+| POST | `/accounts/link/evm` | Link external EVM wallet | 201 |
+
+### Solana (`/solana/*`) - CQRS
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| GET | `/solana/status` | Get wallet status | 200 |
+| POST | `/solana/wallets` | Create PDA wallet | **202** |
+| GET | `/solana/attestations/:wallet` | Get attestations | 200 |
+
+### KYC (`/kyc/*`)
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| GET | `/kyc/status` | Get KYC status | 200 |
+| POST | `/kyc/initiate` | Start verification | 200 |
+| POST | `/kyc/webhook/:provider` | Provider webhook | 200 |
+
+### Discovery (`/.well-known/*`)
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| GET | `/.well-known/openid-configuration` | OIDC discovery | 200 |
+| GET | `/.well-known/jwks.json` | JSON Web Key Set | 200 |

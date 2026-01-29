@@ -1,52 +1,126 @@
 ---
 title: Architecture
-description: "System architecture and infrastructure components"
+description: "CQRS event-driven architecture for multi-chain identity"
 ---
 
 # Architecture
 
-Signum is designed as an enterprise-grade identity layer with event-driven multi-chain synchronization.
+Signum implements a **CQRS (Command Query Responsibility Segregation)** pattern with Kafka-based event-driven architecture for reliable multi-chain identity management.
 
-## System Overview
+## CQRS Overview
 
+The architecture separates write operations (commands) from read operations (queries):
+
+| Operation | HTTP Response | Behavior |
+|-----------|---------------|----------|
+| **Commands** | `202 Accepted` | Writes to DB, publishes Kafka command, async on-chain execution |
+| **Queries** | `200 OK` | Reads directly from database (eventually consistent) |
+
+```mermaid
+flowchart LR
+    subgraph client [Client Application]
+        App[Web/Mobile App]
+    end
+
+    subgraph api [Signum API]
+        Commands[Command Handlers]
+        Queries[Query Handlers]
+    end
+
+    subgraph storage [Storage]
+        DB[(Supabase)]
+        Kafka[Kafka]
+    end
+
+    subgraph workers [Infrastructure Workers]
+        AttWorker[attestation-worker]
+        TransWorker[transfer-worker]
+        WalletWorker[wallet-worker]
+        DbSync[db-sync-worker]
+    end
+
+    App -->|"POST /attestations"| Commands
+    App -->|"GET /attestations"| Queries
+    
+    Commands -->|Write pending| DB
+    Commands -->|Publish command| Kafka
+    Commands -->|"202 Accepted"| App
+    
+    Queries -->|Read| DB
+    Queries -->|"200 OK"| App
+    
+    Kafka --> AttWorker
+    Kafka --> TransWorker
+    Kafka --> WalletWorker
+    AttWorker --> DbSync
+    TransWorker --> DbSync
+    WalletWorker --> DbSync
+    DbSync -->|Update status| DB
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SIGNUM IDENTITY PLATFORM                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        API GATEWAY (Elysia/Bun)                      │   │
-│  │  • OAuth2/OIDC endpoints    • Direct auth API    • Rate limiting    │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                      │                                      │
-│          ┌───────────────────────────┼───────────────────────────┐         │
-│          │                           │                           │         │
-│  ┌───────▼───────┐           ┌───────▼───────┐           ┌───────▼───────┐ │
-│  │   Identity    │           │      KYC      │           │  Attestation  │ │
-│  │   Service     │           │    Service    │           │    Bridge     │ │
-│  │               │           │               │           │               │ │
-│  │ • User CRUD   │           │ • Sumsub      │           │ • Cross-chain │ │
-│  │ • JWT signing │           │ • Verification│           │ • Kafka sync  │ │
-│  │ • Sessions    │           │ • Webhooks    │           │ • Revocation  │ │
-│  └───────────────┘           └───────────────┘           └───────────────┘ │
-│          │                           │                           │         │
-│  ┌───────┴───────────────────────────┴───────────────────────────┴───────┐ │
-│  │                         EVENT BUS (Kafka/Redpanda)                     │ │
-│  │  kyc.status.changed │ attestation.created │ chain.*.events            │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                      │                                      │
-│          ┌───────────────────────────┼───────────────────────────┐         │
-│          │                           │                           │         │
-│  ┌───────▼───────┐           ┌───────▼───────┐           ┌───────▼───────┐ │
-│  │    SOLANA     │           │      EVM      │           │    CANTON     │ │
-│  │   (Helius)    │           │    (viem)     │           │  (Ledger API) │ │
-│  │               │           │               │           │               │ │
-│  │ • PDAs        │           │ • ERC-3643    │           │ • DAML        │ │
-│  │ • Token 2022  │           │ • Multi-chain │           │ • Party IDs   │ │
-│  │ • Hooks       │           │ • Registry    │           │ • Privacy     │ │
-│  └───────────────┘           └───────────────┘           └───────────────┘ │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+
+## System Architecture
+
+```mermaid
+flowchart TB
+    subgraph SignumAPI ["Signum Identity Provider"]
+        subgraph APILayer ["API Layer (Elysia/Bun)"]
+            OAuth["OAuth2/OIDC"]
+            DirectAuth["Direct Auth"]
+            Attestations["Attestations<br/>(CQRS)"]
+            Accounts["Accounts"]
+            Solana["Solana API"]
+        end
+
+        subgraph CommandBus ["Command Bus (Kafka)"]
+            AttCmd["signum.attestation.commands"]
+            TransCmd["signum.transfer.commands"]
+            WalletCmd["signum.wallet.commands"]
+        end
+
+        subgraph Storage ["Storage Layer"]
+            Postgres[("PostgreSQL<br/>(Supabase)")]
+            Dragonfly[("Dragonfly<br/>(Redis)")]
+            InMemory[("In-Memory<br/>JWKS Cache")]
+        end
+    end
+
+    subgraph Workers ["Infrastructure Workers"]
+        KycProc["kyc-processor"]
+        AttWorker["attestation-worker"]
+        TransWorker["transfer-worker"]
+        WalletWorker["wallet-worker"]
+        DbSync["db-sync-worker"]
+        SolListener["solana-listener"]
+    end
+
+    subgraph Chains ["Blockchain Networks"]
+        SolanaChain["Solana<br/>(Active)"]
+        EVMChain["EVM Chains<br/>(Planned)"]
+        ARCChain["ARC/Circle<br/>(Planned)"]
+        ArchChain["Arch/Bitcoin<br/>(Planned)"]
+    end
+
+    OAuth --> Postgres
+    DirectAuth --> Postgres
+    Attestations --> AttCmd
+    Attestations --> Postgres
+    Accounts --> WalletCmd
+    Solana --> WalletCmd
+
+    AttCmd --> AttWorker
+    TransCmd --> TransWorker
+    WalletCmd --> WalletWorker
+
+    AttWorker --> SolanaChain
+    TransWorker --> SolanaChain
+    WalletWorker --> SolanaChain
+
+    SolanaChain --> SolListener
+    SolListener --> DbSync
+    AttWorker --> DbSync
+    TransWorker --> DbSync
+    WalletWorker --> DbSync
+    DbSync --> Postgres
 ```
 
 ## Core Components
@@ -55,61 +129,154 @@ Signum is designed as an enterprise-grade identity layer with event-driven multi
 
 The API is built with **Elysia** on the **Bun** runtime for maximum performance:
 
-| Endpoint Group | Purpose |
-|----------------|---------|
-| `/auth/*` | Direct API authentication (embedded mode) |
-| `/oauth/*` | OAuth2/OIDC flows for third-party apps |
-| `/accounts/*` | Unified chain identity management |
-| `/solana/*` | Solana-specific PDA operations |
-| `/kyc/*` | KYC verification and status |
-| `/.well-known/*` | OIDC discovery and JWKS |
+| Endpoint Group | Purpose | Pattern |
+|----------------|---------|---------|
+| `/auth/*` | Direct API authentication | Sync (200) |
+| `/oauth/*` | OAuth2/OIDC flows | Sync (200) |
+| `/accounts/*` | Chain identity management | Sync (200) |
+| `/solana/wallets` | PDA wallet creation | **Async (202)** |
+| `/attestations` | KYC attestation management | **Async (202)** |
+| `/kyc/*` | KYC verification status | Sync (200) |
+| `/.well-known/*` | OIDC discovery and JWKS | Sync (200) |
 
-### Identity Service
+### Command Endpoints (202 Accepted)
 
-Manages user lifecycle and JWT signing:
+These endpoints queue operations for async processing:
 
-- **ES256 signing** with rotating key pairs
-- **Multi-chain claims** embedded in tokens
-- **Refresh token rotation** with secure storage
-- **Session management** via Dragonfly cache
+| Endpoint | Command Topic | Worker |
+|----------|---------------|--------|
+| `POST /solana/wallets` | `signum.wallet.commands` | wallet-worker |
+| `POST /attestations` | `signum.attestation.commands` | attestation-worker |
+| `DELETE /attestations/:id` | `signum.attestation.commands` | attestation-worker |
+| `POST /transfers` | `signum.transfer.commands` | transfer-worker |
 
-### KYC Service
+### Query Endpoints (200 OK)
 
-Pluggable KYC provider integration:
+These endpoints read directly from the database:
 
-```typescript
-interface KycProvider {
-  createApplicant(user: User): Promise<ApplicantId>;
-  getVerificationStatus(applicantId: string): Promise<KycStatus>;
-  generateAccessToken(applicantId: string): Promise<string>;
-}
-```
+| Endpoint | Description |
+|----------|-------------|
+| `GET /accounts` | List all chain identities |
+| `GET /accounts/wallets` | Get embedded wallets |
+| `GET /solana/status` | Get Solana wallet status |
+| `GET /attestations` | List user's attestations |
+| `GET /attestations/:id` | Get attestation by ID |
 
-Currently supports:
-- **Sumsub** for production
-- **Mock provider** for development
-
-### Attestation Bridge
-
-Event-driven cross-chain synchronization:
+## Worker Services
 
 ```mermaid
 flowchart LR
-    KYC[KYC Approved] --> Kafka[Kafka Event]
-    Kafka --> Solana[Solana PDA]
-    Kafka --> EVM[EVM Registry]
-    Kafka --> Canton[Canton Contract]
+    subgraph Commands ["Command Topics"]
+        A1["signum.attestation.commands"]
+        T1["signum.transfer.commands"]
+        W1["signum.wallet.commands"]
+    end
+
+    subgraph Workers ["Workers"]
+        AW["attestation-worker"]
+        TW["transfer-worker"]
+        WW["wallet-worker"]
+    end
+
+    subgraph Events ["Event Topics"]
+        E1["signum.blockchain.events"]
+    end
+
+    subgraph Sync ["Database Sync"]
+        DS["db-sync-worker"]
+        DB[(Supabase)]
+    end
+
+    A1 --> AW
+    T1 --> TW
+    W1 --> WW
+
+    AW --> E1
+    TW --> E1
+    WW --> E1
+
+    E1 --> DS
+    DS --> DB
+```
+
+| Worker | Input | Output | Responsibility |
+|--------|-------|--------|----------------|
+| **kyc-processor** | KYC webhooks | `signum.kyc.status.changed` | Process KYC provider webhooks |
+| **attestation-worker** | `signum.attestation.commands` | `signum.blockchain.events` | Create/revoke on-chain attestations |
+| **transfer-worker** | `signum.transfer.commands` | `signum.blockchain.events` | Execute compliant token transfers |
+| **wallet-worker** | `signum.wallet.commands` | `signum.blockchain.events` | Initialize PDA wallets on-chain |
+| **db-sync-worker** | All event topics | Database writes | Sync blockchain state to database |
+| **solana-listener** | Helius webhooks | `chain.solana.events` | Monitor on-chain account changes |
+
+## Event Flow Examples
+
+### KYC to On-Chain Attestation
+
+```mermaid
+sequenceDiagram
+    participant Provider as KYC Provider
+    participant KycProc as kyc-processor
+    participant Kafka
+    participant AttWorker as attestation-worker
+    participant Solana
+    participant DbSync as db-sync-worker
+    participant DB as Supabase
+
+    Provider->>KycProc: POST /webhook/sumsub
+    KycProc->>Kafka: signum.kyc.status.changed
     
-    Solana --> Confirm1[chain.solana.events]
-    EVM --> Confirm2[chain.evm.events]
-    Canton --> Confirm3[chain.canton.events]
+    Kafka->>DbSync: Consume KYC event
+    DbSync->>DB: Update kyc_verifications
     
-    Confirm1 --> DB[(Database)]
-    Confirm2 --> DB
-    Confirm3 --> DB
+    Note over AttWorker: API triggers attestation
+    
+    Kafka->>AttWorker: signum.attestation.commands
+    AttWorker->>Solana: Create attestation PDA
+    AttWorker->>Kafka: signum.blockchain.events
+    
+    Kafka->>DbSync: Consume blockchain event
+    DbSync->>DB: Update attestation status → confirmed
+```
+
+### Wallet PDA Initialization
+
+```mermaid
+sequenceDiagram
+    participant App as Client App
+    participant API as Signum API
+    participant DB as Supabase
+    participant Kafka
+    participant Worker as wallet-worker
+    participant Solana
+
+    App->>API: POST /solana/wallets
+    API->>DB: Insert wallet (status: pending)
+    API->>Kafka: signum.wallet.commands
+    API-->>App: 202 Accepted {walletId, status: pending}
+    
+    Kafka->>Worker: Consume CREATE_WALLET_PDA
+    Worker->>Solana: Initialize PDA account
+    Worker->>Kafka: signum.blockchain.events
+    
+    Note over DB: db-sync-worker updates status
+    
+    App->>API: GET /solana/status
+    API->>DB: Query wallet status
+    API-->>App: 200 OK {status: confirmed}
 ```
 
 ## Infrastructure
+
+### Kafka Topics
+
+| Topic | Producer | Consumer | Purpose |
+|-------|----------|----------|---------|
+| `signum.kyc.status.changed` | kyc-processor | db-sync-worker | KYC verification updates |
+| `signum.attestation.commands` | Signum API | attestation-worker | Create/revoke attestations |
+| `signum.transfer.commands` | Signum API | transfer-worker | Execute compliant transfers |
+| `signum.wallet.commands` | Signum API | wallet-worker | Initialize PDA wallets |
+| `signum.blockchain.events` | All workers | db-sync-worker | Confirmed/failed tx events |
+| `chain.solana.events` | solana-listener | db-sync-worker | On-chain account changes |
 
 ### Dragonfly (Cache)
 
@@ -123,25 +290,6 @@ High-performance Redis-compatible cache:
 | OAuth state | `oauth_state:{state}` | 15 minutes |
 | JWKS cache | `jwks:current` | 1 hour |
 
-**Why Dragonfly?**
-- 25x higher throughput than Redis
-- 80% lower memory footprint
-- Multi-threaded architecture
-- Full Redis API compatibility
-
-### Kafka/Redpanda (Events)
-
-Event streaming for service communication:
-
-| Topic | Producer | Consumers |
-|-------|----------|-----------|
-| `kyc.status.changed` | KYC Service | Chain adapters |
-| `attestation.created` | Attestation Bridge | All chains |
-| `attestation.revoked` | Attestation Bridge | All chains |
-| `chain.solana.events` | Helius Listener | Database sync |
-| `chain.evm.events` | EVM Adapter | Database sync |
-| `chain.canton.events` | Canton Adapter | Database sync |
-
 ### Supabase (Database)
 
 PostgreSQL with Row-Level Security:
@@ -151,12 +299,38 @@ PostgreSQL with Row-Level Security:
 users                    -- User accounts
 user_chain_identities    -- Linked wallet addresses
 kyc_verifications        -- KYC status and metadata
-attestation_anchors      -- Cross-chain attestation records
+solana_wallets           -- PDA wallet records with status
+solana_attestations      -- Attestation records with status
 oauth_clients            -- Registered applications
 refresh_tokens           -- Token storage
 ```
 
-## Chain Integrations
+## Chain Integration Roadmap
+
+```mermaid
+flowchart LR
+    subgraph Active ["Active"]
+        Solana["Solana<br/>Token-2022, PDAs<br/>via Helius"]
+    end
+
+    subgraph Next ["Next Priority"]
+        EVM["EVM/Ethereum<br/>ERC-3643<br/>Multi-chain"]
+    end
+
+    subgraph Planned ["Planned"]
+        ARC["ARC<br/>Circle USDC<br/>Chain"]
+        Arch["Arch<br/>Bitcoin<br/>Layer"]
+    end
+
+    Active --> Next --> Planned
+```
+
+| Priority | Chain | Status | Technology |
+|----------|-------|--------|------------|
+| 1 | **Solana** | Active | Token-2022, Transfer Hooks, PDAs via Helius |
+| 2 | **EVM/Ethereum** | Next | ERC-3643 Identity Registry (Ethereum, Polygon, Base) |
+| 3 | **ARC** | Planned | Circle USDC chain integration |
+| 4 | **Arch** | Planned | Bitcoin layer integration |
 
 ### Solana via Helius
 
@@ -166,40 +340,18 @@ refresh_tokens           -- Token storage
 - **Priority Fee API** for reliable transaction landing
 - **Enhanced RPC** for complex queries
 
-```typescript
-// Helius WebSocket subscription
-const ws = new WebSocket(`wss://atlas-mainnet.helius-rpc.com?api-key=${API_KEY}`);
-ws.send(JSON.stringify({
-  jsonrpc: "2.0",
-  method: "accountSubscribe",
-  params: [PDA_ADDRESS, { encoding: "jsonParsed" }]
-}));
-```
+The **solana-listener** service monitors PDAs and publishes events to Kafka.
 
-The **Helius Listener** service:
-1. Monitors registered PDAs for changes
-2. Publishes events to Kafka
-3. Enables real-time attestation sync
+### EVM (Planned)
 
-### EVM via viem
+Multi-chain EVM support using viem:
 
-Multi-chain EVM support:
-
-| Network | Chain ID | Registry Contract |
-|---------|----------|-------------------|
-| Ethereum Mainnet | 1 | `0x...` |
-| Polygon | 137 | `0x...` |
-| Arbitrum One | 42161 | `0x...` |
-| Base | 8453 | `0x...` |
-| Optimism | 10 | `0x...` |
-
-### Canton Network
-
-Enterprise blockchain with privacy:
-
-- **DAML contracts** for tokenized assets
-- **Party-based identity** for institutional privacy
-- **Ledger API** for event streaming
+| Network | Chain ID | Status |
+|---------|----------|--------|
+| Ethereum Mainnet | 1 | Planned |
+| Polygon | 137 | Planned |
+| Base | 8453 | Planned |
+| Arbitrum One | 42161 | Planned |
 
 ## Security Architecture
 
@@ -251,28 +403,24 @@ Sliding window rate limiting via Dragonfly:
 ### Development
 
 ```bash
-# Start all infrastructure
-cd infra
-make start-all
+# Start infrastructure
+cd infra && make start-all
 
 # Runs:
 # - Supabase (localhost:54321)
 # - Dragonfly (localhost:6379)
 # - Redpanda (localhost:9092)
-# - Redpanda Console (localhost:8080)
 
-# Start app service
-cd ../app
-bun run dev
+# Start API
+cd ../app && bun dev
 ```
 
 ### Production
 
-Recommended deployment:
-
 | Component | Platform | Scaling |
 |-----------|----------|---------|
 | API | Fly.io / Railway | Horizontal |
-| Cache | Dragonfly Cloud | Single node (25x Redis) |
+| Workers | Docker / Kubernetes | Per topic |
+| Cache | Dragonfly Cloud | Single node |
 | Database | Supabase Cloud | Managed |
 | Events | Confluent Cloud | Managed |

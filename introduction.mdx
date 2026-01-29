@@ -5,7 +5,7 @@ description: "Federated Identity Provider with Multi-Chain Attestation Bridging"
 
 # Signum Identity Platform
 
-Signum is an enterprise-grade **Federated Identity Provider** that bridges verified identities across blockchain networks. It provides a unified authentication layer with cryptographic attestations that work seamlessly across Solana, EVM chains, and Canton Network.
+Signum is an enterprise-grade **Federated Identity Provider** that bridges verified identities across blockchain networks. It provides a unified authentication layer with cryptographic attestations using a **CQRS event-driven architecture**.
 
 <Frame>
   <img src="/images/signum-architecture.svg" alt="Signum Architecture" />
@@ -29,7 +29,7 @@ Signum provides a single identity layer that:
     OAuth2/OIDC compliant auth that works with existing enterprise systems. One login, access to all chains.
   </Card>
   <Card title="Portable KYC" icon="shield-check">
-    Verify once, attest everywhere. KYC attestations bridge automatically across Solana, EVM, and Canton.
+    Verify once, attest everywhere. KYC attestations bridge automatically across supported blockchains.
   </Card>
   <Card title="Deterministic Wallets" icon="wallet">
     Program Derived Addresses (PDAs) on Solana tied to your identity. No seed phrases, no key management.
@@ -39,6 +39,33 @@ Signum provides a single identity layer that:
   </Card>
 </CardGroup>
 
+## Chain Support Roadmap
+
+```mermaid
+flowchart LR
+    subgraph Active ["Active"]
+        Solana["Solana"]
+    end
+
+    subgraph Next ["Next Priority"]
+        EVM["EVM/Ethereum"]
+    end
+
+    subgraph Planned ["Planned"]
+        ARC["ARC (Circle)"]
+        Arch["Arch (Bitcoin)"]
+    end
+
+    Active --> Next --> Planned
+```
+
+| Priority | Chain | Status | Features |
+|----------|-------|--------|----------|
+| 1 | **Solana** | Active | PDA wallets, Token-2022 transfer hooks, compliance enforcement |
+| 2 | **EVM** | Next | Ethereum, Polygon, Base with ERC-3643 Identity Registry |
+| 3 | **ARC** | Planned | Circle USDC chain integration |
+| 4 | **Arch** | Planned | Bitcoin layer integration |
+
 ## How It Works
 
 ```mermaid
@@ -47,7 +74,8 @@ sequenceDiagram
     participant App as Your Application
     participant Signum
     participant KYC as KYC Provider
-    participant Chains as Blockchains
+    participant Worker as Workers
+    participant Chain as Blockchain
 
     User->>App: Login request
     App->>Signum: OAuth2 authorize
@@ -64,20 +92,25 @@ sequenceDiagram
     User->>KYC: Complete verification
     KYC->>Signum: Webhook callback
     
-    Note over Signum,Chains: KYC approved
+    Note over Signum,Chain: KYC approved - CQRS flow
     
-    Signum->>Chains: Create attestations
-    Chains-->>Signum: Confirm anchoring
-    Signum->>App: Attestation ready
+    Signum->>Worker: Queue attestation command
+    Signum-->>App: 202 Accepted
+    Worker->>Chain: Create attestation
+    Chain-->>Worker: Confirmed
+    Worker->>Signum: Update status
 ```
 
-## Supported Chains
+## CQRS Architecture
 
-| Chain | Features | Attestation Type |
-|-------|----------|------------------|
-| **Solana** | PDA wallets, Token 2022 transfer hooks, compliance enforcement | Anchor account + Transfer hook |
-| **EVM** | Ethereum, Polygon, Arbitrum, Base, Optimism | ERC-3643 Identity Registry |
-| **Canton** | DAML smart contracts, institutional privacy | Party ID + KYC Contract |
+Signum uses Command Query Responsibility Segregation for reliable blockchain operations:
+
+| Operation Type | HTTP Response | Behavior |
+|----------------|---------------|----------|
+| **Commands** | `202 Accepted` | Async execution via Kafka workers |
+| **Queries** | `200 OK` | Direct database reads |
+
+This ensures reliability and consistency even during blockchain congestion or failures.
 
 ## Core Concepts
 
@@ -87,7 +120,7 @@ sequenceDiagram
   </Accordion>
   
   <Accordion title="Multi-Chain Identities">
-    Each user has linked identities across chains: Solana PDAs, EVM wallet addresses, and Canton party IDs. All tied to a single Signum identity with unified KYC status.
+    Each user has linked identities across chains: Solana PDAs, EVM wallet addresses. All tied to a single Signum identity with unified KYC status.
   </Accordion>
   
   <Accordion title="Attestations">
@@ -95,7 +128,11 @@ sequenceDiagram
   </Accordion>
   
   <Accordion title="Program Derived Addresses (PDAs)">
-    On Solana, wallet addresses are derived deterministically from email hashes. No private keys to manage—the program itself controls the wallet. Users can transact without seed phrases.
+    On Solana, wallet addresses are derived deterministically from user IDs. No private keys to manage—the program itself controls the wallet. Users can transact without seed phrases.
+  </Accordion>
+
+  <Accordion title="Event-Driven Workers">
+    Infrastructure workers consume Kafka commands and execute blockchain operations asynchronously. This provides reliability, retries, and eventual consistency with the database.
   </Accordion>
 </AccordionGroup>
 
@@ -134,13 +171,15 @@ Get integrated in 5 minutes:
 
 ## Infrastructure
 
-Signum is built on enterprise infrastructure:
+Signum is built on enterprise infrastructure with CQRS pattern:
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| **Cache** | Dragonfly | Rate limiting, session storage, token revocation |
-| **Events** | Kafka/Redpanda | Cross-chain attestation sync, KYC webhooks |
-| **Database** | Supabase (Postgres) | Identity storage with RLS policies |
-| **Chains** | Helius (Solana), viem (EVM), Canton Ledger API | Multi-chain operations |
+| **API** | Elysia/Bun | Fast REST API with OpenAPI docs |
+| **Workers** | Kafka consumers | Async blockchain operations |
+| **Cache** | Dragonfly | Rate limiting, session storage |
+| **Events** | Kafka/Redpanda | CQRS command/event bus |
+| **Database** | Supabase (Postgres) | Identity storage with RLS |
+| **Solana** | Helius | Enhanced RPC and event streaming |
 
-See the [Architecture](/architecture) page for full infrastructure documentation.
+See the [Architecture](/architecture) page for full CQRS infrastructure documentation.

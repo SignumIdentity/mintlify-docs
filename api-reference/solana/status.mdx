@@ -6,7 +6,11 @@ api: "GET /solana/status"
 
 # Get Solana Status
 
-Check if the authenticated user has a Solana PDA wallet and their attestation status.
+Check the authenticated user's Solana PDA wallet status and attestation information. This is a **query endpoint** that reads from the database.
+
+<Note>
+  This endpoint reads from the database, which is eventually consistent with on-chain state. The `status` field indicates the current synchronization state.
+</Note>
 
 ## Authorization
 
@@ -16,42 +20,38 @@ Check if the authenticated user has a Solana PDA wallet and their attestation st
 
 ## Response
 
-<ResponseField name="hasWallet" type="boolean">
-  Whether the user has a Solana PDA wallet.
+<ResponseField name="exists" type="boolean">
+  Whether a wallet record exists for the user.
 </ResponseField>
 
-<ResponseField name="wallet" type="object">
-  Wallet details if exists.
-  <Expandable title="properties">
-    <ResponseField name="address" type="string">
-      Solana wallet address.
-    </ResponseField>
-    <ResponseField name="type" type="string">
-      Wallet type: "pda" or "linked".
-    </ResponseField>
-    <ResponseField name="createdAt" type="string">
-      ISO 8601 timestamp.
-    </ResponseField>
-  </Expandable>
+<ResponseField name="address" type="string">
+  Derived PDA wallet address.
 </ResponseField>
 
-<ResponseField name="attestation" type="object">
-  KYC attestation status on Solana.
-  <Expandable title="properties">
-    <ResponseField name="verified" type="boolean">
-      Whether attestation is valid.
-    </ResponseField>
-    <ResponseField name="level" type="string">
-      Verification level.
-    </ResponseField>
-    <ResponseField name="anchoredAt" type="string">
-      When attestation was created on-chain.
-    </ResponseField>
-    <ResponseField name="expiresAt" type="string">
-      When attestation expires.
-    </ResponseField>
-  </Expandable>
+<ResponseField name="status" type="string">
+  Wallet status: "pending", "confirmed", "failed", or "unknown".
 </ResponseField>
+
+<ResponseField name="embeddedWallet" type="string">
+  Associated embedded wallet address (from Privy).
+</ResponseField>
+
+<ResponseField name="attestationPda" type="string">
+  Derived attestation PDA address.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp of wallet creation.
+</ResponseField>
+
+### Status Values
+
+| Status | Description |
+|--------|-------------|
+| `pending` | PDA creation has been queued but not yet confirmed on-chain |
+| `confirmed` | PDA is initialized and confirmed on-chain |
+| `failed` | PDA initialization failed after retries |
+| `unknown` | No wallet record exists for this user |
 
 <RequestExample>
 ```bash cURL
@@ -65,36 +65,44 @@ const response = await fetch('https://api.signum.id/solana/status', {
 });
 
 const status = await response.json();
-if (status.hasWallet) {
-  console.log('Wallet:', status.wallet.address);
-  console.log('KYC Verified:', status.attestation?.verified);
+if (status.status === 'confirmed') {
+  console.log('Wallet ready:', status.address);
+} else if (status.status === 'pending') {
+  console.log('Wallet creation in progress...');
 }
 ```
 </RequestExample>
 
 <ResponseExample>
-```json 200 OK (with wallet)
+```json 200 OK (confirmed wallet)
 {
-  "hasWallet": true,
-  "wallet": {
-    "address": "5Gh7UuKrE7ePX4ghjZN2abcdef1234567890abcdef",
-    "type": "pda",
-    "createdAt": "2026-01-15T12:00:00Z"
-  },
-  "attestation": {
-    "verified": true,
-    "level": "enhanced",
-    "anchoredAt": "2026-01-15T14:00:00Z",
-    "expiresAt": "2027-01-15T14:00:00Z"
-  }
+  "exists": true,
+  "address": "5Gh7UuKrE7ePX4ghjZN2abcdef1234567890abcdef",
+  "status": "confirmed",
+  "embeddedWallet": "7Kx2BvPL8tqRxyz7890abcdef1234567890abcdef",
+  "attestationPda": "9Kx2BvPL8tqRxyz7890abcdef1234567890abcdef",
+  "createdAt": "2026-01-15T12:00:00Z"
+}
+```
+
+```json 200 OK (pending wallet)
+{
+  "exists": true,
+  "address": "5Gh7UuKrE7ePX4ghjZN2abcdef1234567890abcdef",
+  "status": "pending",
+  "embeddedWallet": "7Kx2BvPL8tqRxyz7890abcdef1234567890abcdef",
+  "attestationPda": "9Kx2BvPL8tqRxyz7890abcdef1234567890abcdef",
+  "createdAt": "2026-01-15T12:00:00Z"
 }
 ```
 
 ```json 200 OK (no wallet)
 {
-  "hasWallet": false,
-  "wallet": null,
-  "attestation": null
+  "exists": false,
+  "address": "5Gh7UuKrE7ePX4ghjZN2abcdef1234567890abcdef",
+  "status": "unknown",
+  "embeddedWallet": null,
+  "attestationPda": "9Kx2BvPL8tqRxyz7890abcdef1234567890abcdef"
 }
 ```
 </ResponseExample>

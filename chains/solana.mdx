@@ -1,32 +1,75 @@
 ---
 title: Solana Integration
-description: "Program Derived Addresses and attestation accounts"
+description: "Program Derived Addresses and attestation accounts with CQRS"
 ---
 
 # Solana Integration
 
 Signum uses Solana's Program Derived Addresses (PDAs) to create deterministic wallet addresses tied to user identities. No seed phrases, no key management—the program itself controls the wallet.
 
+<Info>
+  Solana is the **active** chain integration. All blockchain operations follow the CQRS pattern with async processing.
+</Info>
+
+## CQRS Pattern
+
+Solana operations use Command Query Responsibility Segregation:
+
+| Operation | HTTP Response | Processing |
+|-----------|---------------|------------|
+| `POST /solana/wallets` | **202 Accepted** | Async via wallet-worker |
+| `GET /solana/status` | 200 OK | Database read |
+| `GET /solana/attestations/:wallet` | 200 OK | Database read |
+
+```mermaid
+sequenceDiagram
+    participant App as Client App
+    participant API as Signum API
+    participant DB as Database
+    participant Kafka
+    participant Worker as wallet-worker
+    participant Solana
+
+    App->>API: POST /solana/wallets
+    API->>DB: Insert wallet (pending)
+    API->>Kafka: signum.wallet.commands
+    API-->>App: 202 Accepted
+
+    Kafka->>Worker: CREATE_WALLET_PDA
+    Worker->>Solana: Initialize PDA
+    Worker->>Kafka: WALLET_PDA_CONFIRMED
+
+    Note over DB: db-sync-worker updates
+
+    App->>API: GET /solana/status
+    API->>DB: Query wallet
+    API-->>App: 200 OK {status: confirmed}
+```
+
 ## How PDAs Work
 
 PDAs are addresses derived from a combination of seeds and a program ID. They have no private key—only the program can sign transactions.
 
+```mermaid
+flowchart TB
+    subgraph Derivation ["PDA Derivation"]
+        User["User ID: user_abc123"]
+        Hash["SHA-256 Hash"]
+        Seeds["Seeds: [wallet, hash]"]
+        PDA["PDA Address"]
+    end
+
+    User --> Hash
+    Hash --> Seeds
+    Seeds --> PDA
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    PDA Derivation                        │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│   Email: user@example.com                               │
-│                    ↓                                    │
-│   SHA-256 Hash: 0xabcdef...                            │
-│                    ↓                                    │
-│   Seeds: ["wallet", emailHash]                          │
-│                    ↓                                    │
-│   findProgramAddressSync(seeds, PROGRAM_ID)             │
-│                    ↓                                    │
-│   PDA: 5Gh7UuKrE7ePX4ghjZN2...                         │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+
+```typescript
+// PDA derivation (deterministic, no RPC needed)
+const [walletPda, bump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("wallet"), userIdHash],
+  SIGNUM_PROGRAM_ID
+);
 ```
 
 ## PDA Types
@@ -38,12 +81,10 @@ Signum creates two PDAs per user:
 The user's custody wallet for holding tokens:
 
 ```typescript
-import { getWalletPDA, hashEmailAsync } from '@signum/solana-sdk';
+import { derivePdaWallet } from '@signum/solana-sdk';
 
-const emailHash = await hashEmailAsync('user@example.com');
-const [walletPda, bump] = getWalletPDA(emailHash, PROGRAM_ID);
-
-console.log('Wallet PDA:', walletPda.toBase58());
+const { address, bump } = derivePdaWallet('user_abc123');
+console.log('Wallet PDA:', address);
 // Output: 5Gh7UuKrE7ePX4ghjZN2...
 ```
 
@@ -52,11 +93,10 @@ console.log('Wallet PDA:', walletPda.toBase58());
 Stores the user's KYC attestation status:
 
 ```typescript
-import { getKycStatusPDA } from '@signum/solana-sdk';
+import { deriveAttestationPda } from '@signum/solana-sdk';
 
-const [attestationPda] = getKycStatusPDA(emailHash, PROGRAM_ID);
-
-console.log('Attestation PDA:', attestationPda.toBase58());
+const { address } = deriveAttestationPda(walletAddress);
+console.log('Attestation PDA:', address);
 // Output: 9Kx2BvPL8tqR...
 ```
 
@@ -66,29 +106,31 @@ console.log('Attestation PDA:', attestationPda.toBase58());
 pub struct KycAttestation {
     /// Bump seed for PDA derivation
     pub bump: u8,
-    /// Email hash (32 bytes)
-    pub email_hash: [u8; 32],
+    /// User ID hash (32 bytes)
+    pub user_id_hash: [u8; 32],
     /// Whether KYC is verified
     pub verified: bool,
     /// Verification level (basic, enhanced, institutional)
     pub level: KycLevel,
+    /// Country code (ISO 3166-1 alpha-2)
+    pub country_code: [u8; 2],
     /// Timestamp of verification
     pub verified_at: i64,
     /// Expiration timestamp
     pub expires_at: i64,
-    /// Issuer (Signum's public key)
+    /// Issuer (Signum's authority public key)
     pub issuer: Pubkey,
 }
 ```
 
 ## Token 2022 Transfer Hooks
 
-Signum uses Token 2022 transfer hooks for compliance enforcement:
+Signum uses Token-2022 transfer hooks for compliance enforcement:
 
 ```mermaid
 sequenceDiagram
     participant User as User Wallet
-    participant Token as Token Program
+    participant Token as Token-2022 Program
     participant Hook as Transfer Hook
     participant Registry as Attestation PDA
 
@@ -106,9 +148,9 @@ If either party lacks a valid attestation, the transfer is rejected.
 
 ## API Endpoints
 
-### Get Solana Status
+### Get Solana Status (Query)
 
-Check if the user has a Solana PDA:
+Check the user's Solana wallet status:
 
 ```bash
 GET /solana/status
@@ -119,26 +161,56 @@ Authorization: Bearer YOUR_TOKEN
 
 ```json
 {
-  "hasWallet": true,
-  "wallet": {
-    "address": "5Gh7UuKrE7ePX4ghjZN2...",
-    "type": "pda",
-    "createdAt": "2026-01-15T12:00:00Z"
-  },
-  "attestation": {
-    "verified": true,
-    "level": "enhanced",
-    "anchoredAt": "2026-01-15T12:05:00Z"
-  }
+  "exists": true,
+  "address": "5Gh7UuKrE7ePX4ghjZN2...",
+  "status": "confirmed",
+  "embeddedWallet": "7Kx2BvPL8tqR...",
+  "attestationPda": "9Kx2BvPL8tqR...",
+  "createdAt": "2026-01-15T12:00:00Z"
 }
 ```
 
-### Create PDA Wallet
+| Status | Description |
+|--------|-------------|
+| `pending` | PDA creation queued |
+| `confirmed` | PDA initialized on-chain |
+| `failed` | Initialization failed |
+| `unknown` | No wallet record |
 
-Create the user's Solana PDA:
+### Create PDA Wallet (Command)
+
+Create the user's Solana PDA wallet:
 
 ```bash
 POST /solana/wallets
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
+{
+  "embeddedWalletAddress": "7Kx2BvPL8tqR..."
+}
+```
+
+**Response (202 Accepted):**
+
+```json
+{
+  "walletId": "wallet_abc123",
+  "pdaAddress": "5Gh7UuKrE7ePX4ghjZN2...",
+  "status": "pending"
+}
+```
+
+<Note>
+  The wallet creation is processed asynchronously. Poll `GET /solana/status` to check when it's confirmed.
+</Note>
+
+### Get Attestations (Query)
+
+Get attestations for a wallet address:
+
+```bash
+GET /solana/attestations/5Gh7UuKrE7ePX4ghjZN2...
 Authorization: Bearer YOUR_TOKEN
 ```
 
@@ -146,14 +218,17 @@ Authorization: Bearer YOUR_TOKEN
 
 ```json
 {
-  "wallet": {
-    "address": "5Gh7UuKrE7ePX4ghjZN2...",
-    "type": "pda"
-  },
-  "transaction": {
-    "signature": "5Gh7...signature",
-    "slot": 123456789
-  }
+  "attestations": [
+    {
+      "pdaAddress": "9Kx2BvPL8tqR...",
+      "verified": true,
+      "kycLevel": 2,
+      "countryCode": "US",
+      "anchored": true,
+      "anchoredAt": "2026-01-15T12:05:00Z",
+      "expiresAt": "2027-01-15T12:05:00Z"
+    }
+  ]
 }
 ```
 
@@ -182,29 +257,68 @@ const signum = new SignumClient({ baseUrl: 'https://api.signum.id' });
 
 // Get Solana status
 const status = await signum.solana.getStatus(accessToken);
-console.log(status.wallet.address);
+console.log(status.address, status.status);
 
-// Create PDA wallet
-const wallet = await signum.solana.createWallet(accessToken);
-console.log('Created:', wallet.wallet.address);
+// Create PDA wallet (returns 202)
+const result = await signum.solana.createWallet(accessToken, {
+  embeddedWalletAddress: '7Kx2BvPL8tqR...'
+});
+console.log('Wallet ID:', result.walletId);
+console.log('Status:', result.status); // "pending"
 
-// Derive PDA locally (no RPC needed)
-import { getWalletPDA, hashEmailAsync } from '@signum/solana-sdk';
-const emailHash = await hashEmailAsync('user@example.com');
-const [pda] = getWalletPDA(emailHash, PROGRAM_ID);
+// Poll for confirmation
+const confirmed = await signum.solana.waitForConfirmation(
+  accessToken,
+  result.walletId,
+  { timeout: 30000 }
+);
+```
+
+### Local PDA Derivation
+
+Derive PDAs locally without RPC calls:
+
+```typescript
+import { derivePdaWallet, deriveAttestationPda } from '@signum/solana-sdk';
+
+// Derive wallet PDA
+const wallet = derivePdaWallet('user_abc123');
+console.log('PDA:', wallet.address);
+console.log('Bump:', wallet.bump);
+
+// Derive attestation PDA from wallet
+const attestation = deriveAttestationPda(wallet.address);
+console.log('Attestation PDA:', attestation.address);
 ```
 
 ## Helius Integration
 
-Signum uses [Helius](https://helius.dev) for real-time PDA monitoring:
+Signum uses [Helius](https://helius.dev) for Solana infrastructure:
 
 | Feature | Purpose |
 |---------|---------|
 | **Enhanced RPC** | Reliable transaction submission |
 | **WebSocket** | Real-time account change notifications |
 | **Priority Fees** | Optimal transaction landing |
+| **Webhooks** | Event-driven updates |
 
-The Helius Listener service monitors PDAs and publishes events to Kafka for cross-chain sync.
+The **solana-listener** service monitors PDAs via Helius and publishes events to Kafka.
+
+```mermaid
+flowchart LR
+    Solana["Solana Network"]
+    Helius["Helius"]
+    Listener["solana-listener"]
+    Kafka["Kafka"]
+    DbSync["db-sync-worker"]
+    DB[(Database)]
+
+    Solana --> Helius
+    Helius -->|Webhook| Listener
+    Listener --> Kafka
+    Kafka --> DbSync
+    DbSync --> DB
+```
 
 ## Security Considerations
 
@@ -212,7 +326,28 @@ The Helius Listener service monitors PDAs and publishes events to Kafka for cros
   PDAs are controlled entirely by the program. Ensure you trust the program before depositing funds.
 </Warning>
 
-- **No private key**: PDAs cannot be compromised via key theft
-- **Program authority**: Only the Signum program can sign transactions
-- **Recovery**: Wallet recovery is tied to identity verification, not seed phrases
-- **Revocation**: Attestations can be revoked, freezing the wallet
+| Aspect | Description |
+|--------|-------------|
+| **No private key** | PDAs cannot be compromised via key theft |
+| **Program authority** | Only the Signum program can sign transactions |
+| **Recovery** | Wallet recovery is tied to identity verification |
+| **Revocation** | Attestations can be revoked, freezing transfers |
+
+## Kafka Commands & Events
+
+### Commands (API → Worker)
+
+| Command | Description |
+|---------|-------------|
+| `CREATE_WALLET_PDA` | Initialize PDA wallet on-chain |
+| `CREATE_ATTESTATION` | Create KYC attestation PDA |
+| `REVOKE_ATTESTATION` | Revoke existing attestation |
+
+### Events (Worker → db-sync)
+
+| Event | Description |
+|-------|-------------|
+| `WALLET_PDA_CONFIRMED` | PDA successfully initialized |
+| `WALLET_PDA_FAILED` | Initialization failed after retries |
+| `ATTESTATION_CONFIRMED` | Attestation created on-chain |
+| `ATTESTATION_FAILED` | Attestation creation failed |

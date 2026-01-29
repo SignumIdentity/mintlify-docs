@@ -5,7 +5,34 @@ description: "Understanding Signum's multi-chain identity model"
 
 # Multi-Chain Identity
 
-Signum provides a unified identity that spans multiple blockchain networks. Each user has linked identities on Solana, EVM chains, and Canton Network, all tied to their single Signum account.
+Signum provides a unified identity that spans multiple blockchain networks. Each user has linked identities across supported chains, all tied to their single Signum account.
+
+## Chain Support Roadmap
+
+```mermaid
+flowchart LR
+    subgraph Active ["Active"]
+        Solana["Solana<br/>Token-2022, PDAs"]
+    end
+
+    subgraph Next ["Next Priority"]
+        EVM["EVM/Ethereum<br/>ERC-3643"]
+    end
+
+    subgraph Planned ["Planned"]
+        ARC["ARC<br/>Circle USDC"]
+        Arch["Arch<br/>Bitcoin Layer"]
+    end
+
+    Active --> Next --> Planned
+```
+
+| Priority | Chain | Status | Description |
+|----------|-------|--------|-------------|
+| 1 | **Solana** | Active | Token-2022, Transfer Hooks, PDAs via Helius |
+| 2 | **EVM/Ethereum** | Next | ERC-3643 Identity Registry (Ethereum, Polygon, Base) |
+| 3 | **ARC** | Planned | Circle USDC chain integration |
+| 4 | **Arch** | Planned | Bitcoin layer integration |
 
 ## The Identity Model
 
@@ -20,65 +47,67 @@ flowchart TB
         direction LR
         Solana[Solana PDAs]
         EVM[EVM Wallets]
-        Canton[Canton Party]
     end
     
     subgraph Attestations["On-Chain Attestations"]
         direction LR
         SolAttest[Solana Attestation]
         EVMAttest[EVM Registry]
-        CantonAttest[Canton Contract]
     end
     
     User --> Solana
     User --> EVM
-    User --> Canton
     
     KYC --> SolAttest
     KYC --> EVMAttest
-    KYC --> CantonAttest
 ```
 
 ## Chain Identity Types
 
 ### Solana - Program Derived Addresses (PDAs)
 
-On Solana, wallet addresses are derived deterministically from email hashes:
+On Solana, wallet addresses are derived deterministically from user IDs:
 
 ```typescript
 // PDA derivation (no private key!)
 const [walletPda] = PublicKey.findProgramAddressSync(
-  [Buffer.from("wallet"), emailHash],
+  [Buffer.from("wallet"), userIdHash],
   SIGNUM_PROGRAM_ID
 );
 ```
 
 **Benefits:**
 - No seed phrase management
-- Deterministic - same email always derives same address
+- Deterministic - same user always derives same address
 - Program-controlled for compliance enforcement
-- Token 2022 transfer hooks for KYC gating
+- Token-2022 transfer hooks for KYC gating
 
-### EVM - Linked Wallets
+### EVM - Linked Wallets (Planned)
 
-On EVM chains, users link their existing wallets or create new embedded wallets via Privy:
+On EVM chains, users link existing wallets or create embedded wallets via Privy:
 
 | Wallet Type | Description |
 |-------------|-------------|
 | **Embedded** | Created by Signum via Privy. MPC-secured, no seed phrase. |
 | **External** | User's existing wallet (MetaMask, etc.) linked via signature. |
 
-Attestations are stored in ERC-3643 compatible Identity Registries.
+Attestations will be stored in ERC-3643 compatible Identity Registries.
 
-### Canton - Party IDs
+### ARC - Circle USDC Chain (Planned)
 
-Canton Network uses party-based identity for institutional privacy:
+Circle's ARC chain for USDC:
 
-```
-party::signum::user-abc123
-```
+- Native USDC transfers
+- Institutional compliance built-in
+- Cross-chain USDC bridging
 
-DAML contracts enforce KYC requirements at the protocol level.
+### Arch - Bitcoin Layer (Planned)
+
+Bitcoin layer integration:
+
+- Bitcoin-native identity attestations
+- Ordinals/Runes compatibility
+- Cross-chain verification
 
 ## Unified Account View
 
@@ -96,23 +125,22 @@ The `/accounts` endpoint returns all chain identities:
       "pda": {
         "address": "5Gh7UuKrE7ePX4ghjZN2...",
         "type": "custody",
+        "status": "confirmed",
         "attestation": {
           "verified": true,
           "anchoredAt": "2026-01-15T12:00:00Z"
         }
       },
-      "linked": [
-        {
-          "address": "9Kx2BvPL8tqR...",
-          "type": "external",
-          "linkedAt": "2026-01-10T09:00:00Z"
-        }
-      ]
+      "embedded": {
+        "address": "7Kx2BvPL8tqR...",
+        "type": "embedded",
+        "createdAt": "2026-01-10T09:00:00Z"
+      }
     },
     "evm": {
       "embedded": {
         "address": "0x1234...5678",
-        "chains": [1, 137, 42161, 8453, 10]
+        "chains": [1, 137, 8453]
       },
       "linked": [
         {
@@ -121,10 +149,6 @@ The `/accounts` endpoint returns all chain identities:
           "primary": true
         }
       ]
-    },
-    "canton": {
-      "partyId": "party::signum::user-abc123",
-      "participant": "participant::signum"
     }
   },
   "kyc": {
@@ -135,55 +159,55 @@ The `/accounts` endpoint returns all chain identities:
 }
 ```
 
-## Cross-Chain Attestations
+## Cross-Chain Attestations (CQRS Pattern)
 
-When a user passes KYC, attestations are created on all linked chains:
+When a user passes KYC, attestations are created asynchronously on linked chains:
 
 ```mermaid
 sequenceDiagram
     participant KYC as KYC Provider
-    participant Signum
+    participant API as Signum API
     participant Kafka
+    participant AttWorker as attestation-worker
     participant Solana
-    participant EVM
-    participant Canton
+    participant DbSync as db-sync-worker
+    participant DB as Database
 
-    KYC->>Signum: Webhook: approved
-    Signum->>Kafka: kyc.status.changed
+    KYC->>API: Webhook: approved
+    API->>Kafka: signum.kyc.status.changed
+    API-->>KYC: 200 OK
     
-    par Parallel anchoring
-        Kafka->>Solana: Update attestation PDA
-        Kafka->>EVM: Call IdentityRegistry
-        Kafka->>Canton: Create KycAttestation
-    end
+    Note over API: User triggers attestation
+    API->>DB: Insert attestation (pending)
+    API->>Kafka: signum.attestation.commands
+    API-->>User: 202 Accepted
     
-    Solana-->>Kafka: chain.solana.events
-    EVM-->>Kafka: chain.evm.events
-    Canton-->>Kafka: chain.canton.events
+    Kafka->>AttWorker: Consume command
+    AttWorker->>Solana: Create attestation PDA
+    AttWorker->>Kafka: signum.blockchain.events
     
-    Kafka->>Signum: Sync confirmation
+    Kafka->>DbSync: Consume event
+    DbSync->>DB: Update status → confirmed
 ```
 
 ## Chain Capabilities
 
-| Feature | Solana | EVM | Canton |
-|---------|--------|-----|--------|
-| **Wallet Type** | PDA (custodial) | EOA (self-custody) | Party ID |
-| **Attestation** | Program account | Registry contract | DAML contract |
-| **Transfer Hook** | Token 2022 | ERC-3643 | Workflow |
-| **Privacy** | Public | Public | Private |
-| **Gas** | Low (~$0.001) | Variable | None |
+| Feature | Solana | EVM (Planned) |
+|---------|--------|---------------|
+| **Wallet Type** | PDA (custodial) | EOA (self-custody) |
+| **Attestation** | Program account | Registry contract |
+| **Transfer Hook** | Token-2022 | ERC-3643 |
+| **Privacy** | Public | Public |
+| **Gas** | Low (~$0.001) | Variable |
+| **Status** | Active | Next Priority |
 
 ## Next Steps
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Solana" icon="sun" href="/chains/solana">
     PDA derivation and attestation PDAs
   </Card>
   <Card title="EVM" icon="ethereum" href="/chains/evm">
-    Multi-chain wallet management
-  </Card>
-  <Card title="Canton" icon="building-columns" href="/chains/canton">
-    Enterprise privacy with DAML
+    Multi-chain wallet management (planned)
   </Card>
 </CardGroup>
