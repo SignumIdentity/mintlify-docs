@@ -1,0 +1,20 @@
+name: Trigger ingestion on push
+# Copy this file into .github/workflows/ of each Signum repo
+# to auto-ingest into Turbopuffer when code is pushed to main.
+# Requires ORG_REPO_TOKEN secret with repo dispatch permission.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ingestion
+        env:
+          GH_TOKEN: ${{ secrets.ORG_REPO_TOKEN }}
+        run: |
+          gh api repos/SignumIdentity/signum-orchestration-system/dispatches \
+            -f event_type=repo-updated \
+            -f "client_payload[repo]=${{ github.event.repository.name }}"
