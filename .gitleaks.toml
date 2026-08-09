@@ -1,0 +1,37 @@
+# Gitleaks configuration for Signum
+# https://github.com/gitleaks/gitleaks
+
+title = "Signum Secret Scanner"
+
+[extend]
+useDefault = true
+
+# Custom rules for project-specific patterns
+[[rules]]
+id = "privy-app-secret"
+description = "Privy App Secret"
+regex = '''privy_app_secret_[A-Za-z0-9]{20,}'''
+tags = ["key", "privy"]
+
+[[rules]]
+id = "supabase-service-key"
+description = "Supabase Service Role Key (non-demo)"
+regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}'''
+tags = ["key", "supabase"]
+
+# Allowlist patterns that are safe
+[allowlist]
+description = "Known safe patterns"
+paths = [
+  '''\.env\.example$''',
+  '''\.gitleaks\.toml$''',
+  '''node_modules''',
+  '''dist''',
+  '''build''',
+  # API docs contain example tokens, curl snippets, and bearer headers
+  '''.*\.mdx$''',
+]
+regexes = [
+  '''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSI''',
+  '''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9''',
+]
