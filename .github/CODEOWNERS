@@ -1,0 +1,8 @@
+# CODEOWNERS — require review on sensitive paths.
+# Becomes enforcing when branch protection requires CODEOWNER review.
+
+# ---- Safety rails ----
+/.claude/                                 @ak68a @AndrewDiedrich @lukasfingerle
+/CLAUDE.md                                @ak68a @AndrewDiedrich @lukasfingerle
+/.github/workflows/                       @ak68a @AndrewDiedrich @lukasfingerle
+/.github/CODEOWNERS                       @ak68a @AndrewDiedrich @lukasfingerle
